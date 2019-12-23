@@ -1,0 +1,1 @@
+`Astikit` is a set of golang helpers that don't require any external dependencies.
