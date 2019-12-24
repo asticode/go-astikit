@@ -39,7 +39,7 @@ func (w *WriterAdapter) Write(i []byte) (n int, err error) {
 	// Split
 	if len(w.o.Split) > 0 {
 		// Split bytes are not present, write in buffer
-		if bytes.Index(i, w.o.Split) == -1 {
+		if !bytes.Contains(i, w.o.Split) {
 			w.buffer.Write(i)
 			return
 		}

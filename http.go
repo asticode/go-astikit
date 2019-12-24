@@ -3,8 +3,10 @@ package astikit
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // ServeHTTPOptions represents serve options
@@ -49,6 +51,108 @@ func ServeHTTP(w *Worker, o ServeHTTPOptions) {
 			w.Logger().Error(fmt.Errorf("astikit: shutting down server on %s failed: %w", o.Addr, err))
 		}
 	})
+}
+
+// HTTPClient represents an HTTP client
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+// HTTPSender represents an object capable of sending http requests
+type HTTPSender struct {
+	client     HTTPClient
+	l          Logger
+	retryFunc  HTTPSenderRetryFunc
+	retryMax   int
+	retrySleep time.Duration
+}
+
+// HTTPSenderRetryFunc is a function that decides whether to retry an HTTP request
+type HTTPSenderRetryFunc func(name string, resp *http.Response) bool
+
+// HTTPSenderOptions represents HTTPSender options
+type HTTPSenderOptions struct {
+	Client     HTTPClient
+	Logger     Logger
+	RetryFunc  HTTPSenderRetryFunc
+	RetryMax   int
+	RetrySleep time.Duration
+}
+
+// NewHTTPSender creates a new HTTP sender
+func NewHTTPSender(o HTTPSenderOptions) (s *HTTPSender) {
+	s = &HTTPSender{
+		client:     o.Client,
+		l:          o.Logger,
+		retryFunc:  o.RetryFunc,
+		retryMax:   o.RetryMax,
+		retrySleep: o.RetrySleep,
+	}
+	if s.client == nil {
+		s.client = &http.Client{}
+	}
+	if s.l == nil {
+		s.l = newNopLogger()
+	}
+	if s.retryFunc == nil {
+		s.retryFunc = s.defaultHTTPRetryFunc
+	}
+	return
+}
+
+func (s *HTTPSender) defaultHTTPRetryFunc(name string, resp *http.Response) bool {
+	if resp.StatusCode >= http.StatusInternalServerError {
+		s.l.Debugf("astikit: invalid status code %d when sending %s", resp.StatusCode, name)
+		return true
+	}
+	return false
+}
+
+// Send sends a new *http.Request
+func (s *HTTPSender) Send(req *http.Request) (resp *http.Response, err error) {
+	return s.execWithRetry(fmt.Sprintf("%s request to %s", req.Method, req.URL), func() (*http.Response, error) { return s.client.Do(req) })
+}
+
+// name is used for logging purposes only
+func (s *HTTPSender) execWithRetry(name string, fn func() (*http.Response, error)) (resp *http.Response, err error) {
+	// Loop
+	// We start at retryMax + 1 so that it runs at least once even if retryMax == 0
+	tries := 0
+	for retriesLeft := s.retryMax + 1; retriesLeft > 0; retriesLeft-- {
+		// Get request name
+		nr := fmt.Sprintf("%s (%d/%d)", name, s.retryMax-retriesLeft+2, s.retryMax+1)
+		tries++
+
+		// Send request
+		var retry bool
+		s.l.Debugf("astikit: sending %s", nr)
+		if resp, err = fn(); err != nil {
+			// If error is temporary, retry
+			if netError, ok := err.(net.Error); ok && netError.Temporary() {
+				s.l.Debugf("astikit: temporary error when sending %s", nr)
+				retry = true
+			} else {
+				err = fmt.Errorf("astikit: sending %s failed: %w", nr, err)
+				return
+			}
+		}
+
+		// Retry
+		if retry || s.retryFunc(nr, resp) {
+			if retriesLeft > 1 {
+				s.l.Debugf("astikit: sleeping %s and retrying... (%d retries left)", s.retrySleep, retriesLeft-1)
+				time.Sleep(s.retrySleep)
+			}
+			continue
+		}
+
+		// Return if conditions for retrying were not met
+		return
+	}
+
+	// Max retries limit reached
+	err = fmt.Errorf("astikit: sending %s failed after %d tries", name, tries)
+	return
 }
 
 // HTTPMiddleware represents an HTTP middleware
