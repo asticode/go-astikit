@@ -16,16 +16,21 @@ type Worker struct {
 	wg     *sync.WaitGroup
 }
 
+// WorkerOptions represents worker options
+type WorkerOptions struct {
+	Logger Logger
+}
+
 // NewWorker builds a new worker
-func NewWorker(l Logger) (w *Worker) {
+func NewWorker(o WorkerOptions) (w *Worker) {
 	w = &Worker{
 		l:  newNopLogger(),
 		wg: &sync.WaitGroup{},
 	}
 	w.ctx, w.cancel = context.WithCancel(context.Background())
 	w.wg.Add(1)
-	if l != nil {
-		w.l = l
+	if o.Logger != nil {
+		w.l = o.Logger
 	}
 	w.l.Info("astikit: starting worker...")
 	return
@@ -96,6 +101,9 @@ func (w *Worker) Logger() Logger {
 	return w.l
 }
 
+// TaskFunc represents a function that can create a new task
+type TaskFunc func() *Task
+
 // Task represents a task
 type Task struct {
 	od, ow  sync.Once
@@ -110,9 +118,6 @@ func newTask(parentWg *sync.WaitGroup) (t *Task) {
 	t.pwg.Add(1)
 	return
 }
-
-// TaskFunc represents a function that can create a new task
-type TaskFunc func() *Task
 
 // NewSubTask creates a new sub task
 func (t *Task) NewSubTask() *Task {
