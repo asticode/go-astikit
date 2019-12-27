@@ -61,7 +61,7 @@ type HTTPClient interface {
 // HTTPSender represents an object capable of sending http requests
 type HTTPSender struct {
 	client     HTTPClient
-	l          Logger
+	l          SeverityLogger
 	retryFunc  HTTPSenderRetryFunc
 	retryMax   int
 	retrySleep time.Duration
@@ -73,7 +73,7 @@ type HTTPSenderRetryFunc func(name string, resp *http.Response) bool
 // HTTPSenderOptions represents HTTPSender options
 type HTTPSenderOptions struct {
 	Client     HTTPClient
-	Logger     Logger
+	Logger     StdLogger
 	RetryFunc  HTTPSenderRetryFunc
 	RetryMax   int
 	RetrySleep time.Duration
@@ -83,16 +83,13 @@ type HTTPSenderOptions struct {
 func NewHTTPSender(o HTTPSenderOptions) (s *HTTPSender) {
 	s = &HTTPSender{
 		client:     o.Client,
-		l:          o.Logger,
+		l:          AdaptStdLogger(o.Logger),
 		retryFunc:  o.RetryFunc,
 		retryMax:   o.RetryMax,
 		retrySleep: o.RetrySleep,
 	}
 	if s.client == nil {
 		s.client = &http.Client{}
-	}
-	if s.l == nil {
-		s.l = newNopLogger()
 	}
 	if s.retryFunc == nil {
 		s.retryFunc = s.defaultHTTPRetryFunc

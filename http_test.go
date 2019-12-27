@@ -29,8 +29,8 @@ func TestServeHTTP(t *testing.T) {
 		c.Do(r)
 	}()
 	w.Wait()
-	if i != 1 {
-		t.Errorf("expected %+v, got %+v", 1, i)
+	if e := 1; i != e {
+		t.Errorf("expected %+v, got %+v", e, i)
 	}
 }
 
@@ -59,8 +59,8 @@ func TestHTTPSender(t *testing.T) {
 	if err == nil {
 		t.Error("expected error, got nil")
 	}
-	if c != 4 {
-		t.Errorf("expected %v, got %v", 4, c)
+	if e := 4; c != e {
+		t.Errorf("expected %v, got %v", e, c)
 	}
 
 	// Successful after retries
@@ -85,8 +85,8 @@ func TestHTTPSender(t *testing.T) {
 	if err != nil {
 		t.Errorf("expected no error, got %+v", err)
 	}
-	if c != 3 {
-		t.Errorf("expected %v, got %v", 3, c)
+	if e := 3; c != e {
+		t.Errorf("expected %v, got %v", e, c)
 	}
 
 }

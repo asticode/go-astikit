@@ -7,29 +7,40 @@ import (
 
 // Orders
 const (
-	ChanFIFOOrder = "fifo"
-	ChanFILOOrder = "filo"
+	ChanAddStrategyBlockWhenStarted = "block.when.started"
+	ChanAddStrategyNoBlock          = "no.block"
+	ChanOrderFIFO                   = "fifo"
+	ChanOrderFILO                   = "filo"
 )
 
-// Chan is an object capable of doing stuff in a specific order without blocking when adding new items
-// in the queue
+// Chan is an object capable of executing funcs in a specific order while controlling the conditions
+// in which adding new funcs is blocking
+// Check out ChanOptions for detailed options
 type Chan struct {
-	cancel context.CancelFunc
-	c      *sync.Cond
-	ctx    context.Context
-	fs     []func()
-	mc     *sync.Mutex // Locks ctx
-	mf     *sync.Mutex // Locks fs
-	o      ChanOptions
-	oStart *sync.Once
-	oStop  *sync.Once
+	cancel   context.CancelFunc
+	c        *sync.Cond
+	ctx      context.Context
+	fs       []func()
+	mc       *sync.Mutex // Locks ctx
+	mf       *sync.Mutex // Locks fs
+	o        ChanOptions
+	oStart   *sync.Once
+	oStop    *sync.Once
+	statWait *DurationPercentageStat
 }
 
 // ChanOptions are Chan options
 type ChanOptions struct {
+	// Determines the conditions in which adding new funcs is blocking.
+	// Possible strategies are :
+	//   - calling Add() never blocks (default). Use the ChanAddStrategyNoBlock constant.
+	//   - calling Add() only blocks if the chan has been started and the ctx
+	// 	   has not been canceled. Use the ChanAddStrategyBlockWhenStarted constant.
+	AddStrategy string
+	// Order in which the funcs will be processed. See constants with the pattern ChanOrder*
 	Order string
 	// By default the funcs not yet processed when the context is cancelled are dropped.
-	// If ProcessAll is true ALL funcs are processed even after the context is cancelled.
+	// If "ProcessAll" is true,  ALL funcs are processed even after the context is cancelled.
 	// However, no funcs can be added after the context is cancelled
 	ProcessAll bool
 }
@@ -93,7 +104,13 @@ func (c *Chan) Start(ctx context.Context) {
 
 			// No funcs in buffer
 			if l == 0 {
+				if c.statWait != nil {
+					c.statWait.Begin()
+				}
 				c.c.Wait()
+				if c.statWait != nil {
+					c.statWait.End()
+				}
 				c.c.L.Unlock()
 				continue
 			}
@@ -130,7 +147,7 @@ func (c *Chan) Stop() {
 }
 
 // Add adds a new item to the chan
-func (c *Chan) Add(fn func()) {
+func (c *Chan) Add(i func()) {
 	// Check context
 	c.mc.Lock()
 	if c.ctx != nil && c.ctx.Err() != nil {
@@ -139,9 +156,23 @@ func (c *Chan) Add(fn func()) {
 	}
 	c.mc.Unlock()
 
+	// Wrap the function
+	var fn func()
+	var wg *sync.WaitGroup
+	if c.o.AddStrategy == ChanAddStrategyBlockWhenStarted {
+		wg = &sync.WaitGroup{}
+		wg.Add(1)
+		fn = func() {
+			defer wg.Done()
+			i()
+		}
+	} else {
+		fn = i
+	}
+
 	// Add func to buffer
 	c.mf.Lock()
-	if c.o.Order == ChanFILOOrder {
+	if c.o.Order == ChanOrderFILO {
 		c.fs = append([]func(){fn}, c.fs...)
 	} else {
 		c.fs = append(c.fs, fn)
@@ -152,6 +183,11 @@ func (c *Chan) Add(fn func()) {
 	c.c.L.Lock()
 	c.c.Signal()
 	c.c.L.Unlock()
+
+	// Wait
+	if wg != nil {
+		wg.Wait()
+	}
 }
 
 // Reset resets the chan
@@ -159,4 +195,19 @@ func (c *Chan) Reset() {
 	c.mf.Lock()
 	defer c.mf.Unlock()
 	c.fs = []func(){}
+}
+
+// AddStats adds stats to the stater
+func (c *Chan) AddStats(s *Stater) {
+	// Create stats
+	if c.statWait == nil {
+		c.statWait = NewDurationPercentageStat()
+	}
+
+	// Add wait stat
+	s.AddStat(StatMetadata{
+		Description: "Percentage of time spent listening and waiting for new object",
+		Label:       "Wait ratio",
+		Unit:        "%",
+	}, c.statWait)
 }

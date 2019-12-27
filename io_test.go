@@ -23,13 +23,13 @@ func TestWriterAdapter(t *testing.T) {
 
 	// Multi Split
 	w.Write([]byte("bla \nbla bla\nbla"))
-	if !reflect.DeepEqual(o, []string{"bla bla bla ", "bla bla"}) {
-		t.Errorf("expected %+v, got %+v", []string{"bla bla bla ", "bla bla"}, o)
+	if e := []string{"bla bla bla ", "bla bla"}; !reflect.DeepEqual(o, e) {
+		t.Errorf("expected %+v, got %+v", e, o)
 	}
 
 	// Close
 	w.Close()
-	if !reflect.DeepEqual(o, []string{"bla bla bla ", "bla bla", "bla"}) {
-		t.Errorf("expected %+v, got %+v", []string{"bla bla bla ", "bla bla", "bla"}, o)
+	if e := []string{"bla bla bla ", "bla bla", "bla"}; !reflect.DeepEqual(o, e) {
+		t.Errorf("expected %+v, got %+v", e, o)
 	}
 }

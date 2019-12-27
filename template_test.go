@@ -10,18 +10,18 @@ func TestTemplater(t *testing.T) {
 	if err := tp.AddLayoutsFromDir("testdata/template/layouts", ".html"); err != nil {
 		t.Errorf("expected no error, got %+v", err)
 	}
-	if len(tp.layouts) != 2 {
-		t.Errorf("expected %v, got %v", 2, len(tp.layouts))
+	if e, g := 2, len(tp.layouts); e != g {
+		t.Errorf("expected %v, got %v", e, g)
 	}
 	if err := tp.AddTemplatesFromDir("testdata/template/templates", ".html"); err != nil {
 		t.Errorf("expected no error, got %+v", err)
 	}
-	if len(tp.templates) != 2 {
-		t.Errorf("expected %v, got %v", 2, len(tp.templates))
+	if e, g := 2, len(tp.templates); e != g {
+		t.Errorf("expected %v, got %v", e, g)
 	}
 	tp.DelTemplate("/dir/template2.html")
-	if len(tp.templates) != 1 {
-		t.Errorf("expected %v, got %v", 1, len(tp.templates))
+	if e, g := 1, len(tp.templates); e != g {
+		t.Errorf("expected %v, got %v", e, g)
 	}
 	v, ok := tp.Template("/template1.html")
 	if !ok {
@@ -31,7 +31,7 @@ func TestTemplater(t *testing.T) {
 	if err := v.Execute(w, nil); err != nil {
 		t.Errorf("expected no error, got %+v", err)
 	}
-	if w.String() != "Layout - Template" {
-		t.Errorf("expected %s, got %s", "Layout - Template", w.String())
+	if e, g := "Layout - Template", w.String(); g != e {
+		t.Errorf("expected %s, got %s", e, g)
 	}
 }

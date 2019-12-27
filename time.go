@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+var now = func() time.Time { return time.Now() }
+
 // Sleep is a cancellable sleep
 func Sleep(ctx context.Context, d time.Duration) (err error) {
 	for {

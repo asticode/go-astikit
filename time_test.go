@@ -20,8 +20,8 @@ func TestSleep(t *testing.T) {
 	}()
 	cancel()
 	wg.Wait()
-	if !errors.Is(err, context.Canceled) {
-		t.Errorf("err should be %s, got %s", context.Canceled, err)
+	if e, g := context.Canceled, err; !errors.Is(g, e) {
+		t.Errorf("err should be %s, got %s", e, g)
 	}
 }
 
@@ -34,8 +34,8 @@ func TestTimestamp(t *testing.T) {
 	if err != nil {
 		t.Errorf("err should be nil, got %s", err)
 	}
-	if v.Value.Unix() != 1495290215 {
-		t.Errorf("timestamp should be %v, got %v", 1495290215, v.Value.Unix())
+	if e, g := int64(1495290215), v.Value.Unix(); g != e {
+		t.Errorf("timestamp should be %v, got %v", e, g)
 	}
 	b, err := json.Marshal(v)
 	if err != nil {

@@ -11,27 +11,24 @@ import (
 type Worker struct {
 	cancel context.CancelFunc
 	ctx    context.Context
-	l      Logger
+	l      SeverityLogger
 	os, ow sync.Once
 	wg     *sync.WaitGroup
 }
 
 // WorkerOptions represents worker options
 type WorkerOptions struct {
-	Logger Logger
+	Logger StdLogger
 }
 
 // NewWorker builds a new worker
 func NewWorker(o WorkerOptions) (w *Worker) {
 	w = &Worker{
-		l:  newNopLogger(),
+		l:  AdaptStdLogger(o.Logger),
 		wg: &sync.WaitGroup{},
 	}
 	w.ctx, w.cancel = context.WithCancel(context.Background())
 	w.wg.Add(1)
-	if o.Logger != nil {
-		w.l = o.Logger
-	}
 	w.l.Info("astikit: starting worker...")
 	return
 }
@@ -97,7 +94,7 @@ func (w *Worker) Context() context.Context {
 }
 
 // Logger returns the worker's logger
-func (w *Worker) Logger() Logger {
+func (w *Worker) Logger() SeverityLogger {
 	return w.l
 }
 

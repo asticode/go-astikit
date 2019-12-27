@@ -4,23 +4,23 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestChan(t *testing.T) {
-	// Setup
-	c := NewChan(ChanOptions{})
-
 	// Do not process all
+	c := NewChan(ChanOptions{})
 	var o []int
 	go func() {
 		c.Add(func() {
+			time.Sleep(time.Millisecond)
 			o = append(o, 1)
 		})
 		c.Stop()
 	}()
 	c.Start(context.Background())
-	if len(o) != 0 {
-		t.Errorf("expected %+v, got %+v", 0, len(o))
+	if e, g := 0, len(o); e != g {
+		t.Errorf("expected %+v, got %+v", e, g)
 	}
 
 	// Process all
@@ -28,13 +28,14 @@ func TestChan(t *testing.T) {
 	o = []int{}
 	go func() {
 		c.Add(func() {
+			time.Sleep(time.Millisecond)
 			o = append(o, 1)
 		})
 		c.Stop()
 	}()
 	c.Start(context.Background())
-	if len(o) != 1 {
-		t.Errorf("expected %+v, got %+v", 1, len(o))
+	if e, g := 1, len(o); e != g {
+		t.Errorf("expected %+v, got %+v", e, g)
 	}
 
 	// Default order
@@ -44,19 +45,21 @@ func TestChan(t *testing.T) {
 		c.Add(func() {
 			o = append(o, 1)
 		})
+		o = append(o, 2)
 		c.Add(func() {
-			o = append(o, 2)
+			o = append(o, 3)
 		})
+		o = append(o, 4)
 		c.Stop()
 	}()
 	c.Start(context.Background())
-	if !reflect.DeepEqual(o, []int{1, 2}) {
-		t.Errorf("expected %+v, got %+v", []int{1, 2}, o)
+	if e := []int{2, 4, 1, 3}; !reflect.DeepEqual(o, e) {
+		t.Errorf("expected %+v, got %+v", e, o)
 	}
 
 	// FILO order
 	c = NewChan(ChanOptions{
-		Order:      ChanFILOOrder,
+		Order:      ChanOrderFILO,
 		ProcessAll: true,
 	})
 	o = []int{}
@@ -70,7 +73,26 @@ func TestChan(t *testing.T) {
 		c.Stop()
 	}()
 	c.Start(context.Background())
-	if !reflect.DeepEqual(o, []int{2, 1}) {
-		t.Errorf("expected %+v, got %+v", []int{2, 1}, o)
+	if e := []int{2, 1}; !reflect.DeepEqual(o, e) {
+		t.Errorf("expected %+v, got %+v", e, o)
+	}
+
+	// Block when started
+	c = NewChan(ChanOptions{AddStrategy: ChanAddStrategyBlockWhenStarted})
+	o = []int{}
+	go func() {
+		c.Add(func() {
+			o = append(o, 1)
+		})
+		o = append(o, 2)
+		c.Add(func() {
+			o = append(o, 3)
+		})
+		o = append(o, 4)
+		c.Stop()
+	}()
+	c.Start(context.Background())
+	if e := []int{1, 2, 3, 4}; !reflect.DeepEqual(o, e) {
+		t.Errorf("expected %+v, got %+v", e, o)
 	}
 }
