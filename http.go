@@ -196,7 +196,7 @@ func handleHTTPBasicAuth(username, password string, rw http.ResponseWriter, r *h
 func HTTPMiddlewareBasicAuth(username, password string) HTTPMiddleware {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-			// Basic auth
+			// Handle basic auth
 			if handleHTTPBasicAuth(username, password, rw, r) {
 				return
 			}
@@ -207,7 +207,7 @@ func HTTPMiddlewareBasicAuth(username, password string) HTTPMiddleware {
 	}
 }
 
-func handleHTTPContentType(contentType string, rw http.ResponseWriter) {
+func setHTTPContentType(contentType string, rw http.ResponseWriter) {
 	rw.Header().Set("Content-Type", contentType)
 }
 
@@ -215,8 +215,27 @@ func handleHTTPContentType(contentType string, rw http.ResponseWriter) {
 func HTTPMiddlewareContentType(contentType string) HTTPMiddleware {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-			// Content type
-			handleHTTPContentType(contentType, rw)
+			// Set content type
+			setHTTPContentType(contentType, rw)
+
+			// Next handler
+			h.ServeHTTP(rw, r)
+		})
+	}
+}
+
+func setHTTPHeaders(vs map[string]string, rw http.ResponseWriter) {
+	for k, v := range vs {
+		rw.Header().Set(k, v)
+	}
+}
+
+// HTTPMiddlewareHeaders adds headers to an HTTP handler
+func HTTPMiddlewareHeaders(vs map[string]string) HTTPMiddleware {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			// Set headers
+			setHTTPHeaders(vs, rw)
 
 			// Next handler
 			h.ServeHTTP(rw, r)

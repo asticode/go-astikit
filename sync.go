@@ -5,7 +5,6 @@ import (
 	"sync"
 )
 
-// Orders
 const (
 	ChanAddStrategyBlockWhenStarted = "block.when.started"
 	ChanAddStrategyNoBlock          = "no.block"
@@ -35,7 +34,7 @@ type ChanOptions struct {
 	// Possible strategies are :
 	//   - calling Add() never blocks (default). Use the ChanAddStrategyNoBlock constant.
 	//   - calling Add() only blocks if the chan has been started and the ctx
-	// 	   has not been canceled. Use the ChanAddStrategyBlockWhenStarted constant.
+	//     has not been canceled. Use the ChanAddStrategyBlockWhenStarted constant.
 	AddStrategy string
 	// Order in which the funcs will be processed. See constants with the pattern ChanOrder*
 	Order string

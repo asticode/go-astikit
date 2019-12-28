@@ -1,9 +1,35 @@
 package astikit
 
 import (
+	"bytes"
+	"context"
+	"errors"
 	"reflect"
 	"testing"
 )
+
+func TestCopy(t *testing.T) {
+	// Context canceled
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	r, w := bytes.NewBuffer([]byte("bla bla bla")), &bytes.Buffer{}
+	n, err := Copy(ctx, w, r)
+	if e := int64(0); n != e {
+		t.Errorf("expected %v, got %v", e, n)
+	}
+	if e := context.Canceled; !errors.Is(err, e) {
+		t.Errorf("error should be %+v, got %+v", e, err)
+	}
+
+	// Default
+	n, err = Copy(context.Background(), w, r)
+	if e := int64(11); n != e {
+		t.Errorf("expected %v, got %v", e, n)
+	}
+	if err != nil {
+		t.Errorf("expected no error, got %+v", err)
+	}
+}
 
 func TestWriterAdapter(t *testing.T) {
 	// Init

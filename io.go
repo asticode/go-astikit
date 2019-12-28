@@ -1,6 +1,52 @@
 package astikit
 
-import "bytes"
+import (
+	"bytes"
+	"context"
+	"io"
+)
+
+// Copy is a copy with a context
+func Copy(ctx context.Context, dst io.Writer, src io.Reader) (int64, error) {
+	return io.Copy(dst, NewCtxReader(ctx, src))
+}
+
+type nopCloser struct {
+	io.Writer
+}
+
+func (nopCloser) Close() error { return nil }
+
+// NopCloser returns a WriteCloser with a no-op Close method wrapping
+// the provided Writer w.
+func NopCloser(w io.Writer) io.WriteCloser {
+	return nopCloser{w}
+}
+
+// CtxReader represents a reader with a context
+type CtxReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+// NewCtxReader creates a reader with a context
+func NewCtxReader(ctx context.Context, r io.Reader) *CtxReader {
+	return &CtxReader{
+		ctx:    ctx,
+		reader: r,
+	}
+}
+
+// Read implements the io.Reader interface
+func (r *CtxReader) Read(p []byte) (n int, err error) {
+	// Check context
+	if err = r.ctx.Err(); err != nil {
+		return
+	}
+
+	// Read
+	return r.reader.Read(p)
+}
 
 // WriterAdapter represents an object that can adapt a Writer
 type WriterAdapter struct {
