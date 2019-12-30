@@ -9,6 +9,22 @@ import (
 	"syscall"
 )
 
+// MoveFile is a cancellable move of a local file to a local or remote location
+func MoveFile(ctx context.Context, dst, src string, f CopyFileFunc) (err error) {
+	// Copy
+	if err = CopyFile(ctx, dst, src, f); err != nil {
+		err = fmt.Errorf("astikit: copying file %s to %s failed: %w", src, dst, err)
+		return
+	}
+
+	// Delete
+	if err = os.Remove(src); err != nil {
+		err = fmt.Errorf("astikit: removing %s failed: %w", src, err)
+		return
+	}
+	return
+}
+
 // CopyFileFunc represents a CopyFile func
 type CopyFileFunc func(ctx context.Context, dst string, srcStat os.FileInfo, srcFile *os.File) error
 

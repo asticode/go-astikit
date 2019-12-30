@@ -24,7 +24,7 @@ func TestServeHTTP(t *testing.T) {
 		Addr: ln.Addr().String(),
 		Handler: http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 			w.Stop()
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(time.Millisecond)
 			i++
 		}),
 	})
@@ -113,7 +113,7 @@ func TestHTTPDownloader(t *testing.T) {
 				// In case of DownloadInWriter we want to check if the order is kept event
 				// if downloaded order is messed up
 				if req.URL.EscapedPath() == "/path/to/2" {
-					time.Sleep(100 * time.Millisecond)
+					time.Sleep(time.Millisecond)
 				}
 				resp = &http.Response{
 					Body:       ioutil.NopCloser(bytes.NewBufferString(req.URL.EscapedPath())),
