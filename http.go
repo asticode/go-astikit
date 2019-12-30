@@ -309,7 +309,7 @@ func (d *HTTPDownloader) DownloadInDirectory(ctx context.Context, dst string, sr
 		defer buf.Close()
 
 		// Make sure destination directory exists
-		if err = os.MkdirAll(dst, 0755); err != nil {
+		if err = os.MkdirAll(dst, DefaultDirMode); err != nil {
 			err = fmt.Errorf("astikit: mkdirall %s failed: %w", dst, err)
 			return
 		}
@@ -414,7 +414,7 @@ func (d *HTTPDownloader) DownloadInWriter(ctx context.Context, dst io.Writer, sr
 // maintaining the initial order
 func (d *HTTPDownloader) DownloadInFile(ctx context.Context, dst string, srcs ...HTTPDownloaderSrc) (err error) {
 	// Make sure destination directory exists
-	if err = os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+	if err = os.MkdirAll(filepath.Dir(dst), DefaultDirMode); err != nil {
 		err = fmt.Errorf("astikit: mkdirall %s failed: %w", filepath.Dir(dst), err)
 		return
 	}

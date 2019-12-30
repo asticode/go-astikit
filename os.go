@@ -79,7 +79,7 @@ func LocalCopyFileFunc(ctx context.Context, dst string, srcStat os.FileInfo, src
 	}
 
 	// Create the destination folder
-	if err = os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+	if err = os.MkdirAll(filepath.Dir(dst), DefaultDirMode); err != nil {
 		err = fmt.Errorf("astikit: mkdirall %s failed: %w", filepath.Dir(dst), err)
 		return
 	}

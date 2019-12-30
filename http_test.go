@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -25,7 +24,7 @@ func TestServeHTTP(t *testing.T) {
 		Addr: ln.Addr().String(),
 		Handler: http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 			w.Stop()
-			time.Sleep(100*time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 			i++
 		}),
 	})
@@ -114,7 +113,7 @@ func TestHTTPDownloader(t *testing.T) {
 				// In case of DownloadInWriter we want to check if the order is kept event
 				// if downloaded order is messed up
 				if req.URL.EscapedPath() == "/path/to/2" {
-					time.Sleep(100*time.Millisecond)
+					time.Sleep(100 * time.Millisecond)
 				}
 				resp = &http.Response{
 					Body:       ioutil.NopCloser(bytes.NewBufferString(req.URL.EscapedPath())),
@@ -135,38 +134,11 @@ func TestHTTPDownloader(t *testing.T) {
 	if err != nil {
 		t.Errorf("expected no error, got %+v", err)
 	}
-	dt := make(map[string]string)
-	err = filepath.Walk(dir, func(path string, info os.FileInfo, e error) (err error) {
-		// Check error
-		if e != nil {
-			return e
-		}
-
-		// Don't process root
-		if path == dir {
-			return
-		}
-
-		// Read
-		var b []byte
-		if b, err = ioutil.ReadFile(path); err != nil {
-			return
-		}
-
-		// Add to map
-		dt[filepath.Base(path)] = string(b)
-		return
+	checkDir(t, dir, map[string]string{
+		"/1": "/path/to/1",
+		"/2": "/path/to/2",
+		"/3": "/path/to/3",
 	})
-	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
-	}
-	if e := map[string]string{
-		"1": "/path/to/1",
-		"2": "/path/to/2",
-		"3": "/path/to/3",
-	}; !reflect.DeepEqual(e, dt) {
-		t.Errorf("expected %+v, got %+v", e, dt)
-	}
 
 	// Download in writer
 	w := &bytes.Buffer{}
