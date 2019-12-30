@@ -3,9 +3,13 @@ package astikit
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -150,6 +154,281 @@ func (s *HTTPSender) execWithRetry(name string, fn func() (*http.Response, error
 	// Max retries limit reached
 	err = fmt.Errorf("astikit: sending %s failed after %d tries", name, tries)
 	return
+}
+
+// HTTPResponseFunc is a func that can process an $http.Response
+type HTTPResponseFunc func(resp *http.Response) error
+
+func defaultHTTPResponseFunc(resp *http.Response) (err error) {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		err = fmt.Errorf("astikit: invalid status code %d", resp.StatusCode)
+		return
+	}
+	return
+}
+
+// HTTPDownloader represents an object capable of downloading several HTTP srcs simultaneously
+// and doing stuff to the results
+type HTTPDownloader struct {
+	bp           *BufferPool
+	l            *GoroutineLimiter
+	responseFunc HTTPResponseFunc
+	s            *HTTPSender
+}
+
+// HTTPDownloaderOptions represents HTTPDownloader options
+type HTTPDownloaderOptions struct {
+	Limiter      GoroutineLimiterOptions
+	ResponseFunc HTTPResponseFunc
+	Sender       HTTPSenderOptions
+}
+
+// NewHTTPDownloader creates a new HTTPDownloader
+func NewHTTPDownloader(o HTTPDownloaderOptions) (d *HTTPDownloader) {
+	d = &HTTPDownloader{
+		bp:           NewBufferPool(),
+		l:            NewGoroutineLimiter(o.Limiter),
+		responseFunc: o.ResponseFunc,
+		s:            NewHTTPSender(o.Sender),
+	}
+	if d.responseFunc == nil {
+		d.responseFunc = defaultHTTPResponseFunc
+	}
+	return
+}
+
+// Close closes the downloader properly
+func (d *HTTPDownloader) Close() error {
+	return d.l.Close()
+}
+
+type HTTPDownloaderSrc struct {
+	Body   io.Reader
+	Header http.Header
+	Method string
+	URL    string
+}
+
+// It is the responsibility of the caller to call i.Close()
+type httpDownloaderFunc func(ctx context.Context, idx int, i *BufferPoolItem) error
+
+func (d *HTTPDownloader) do(ctx context.Context, fn httpDownloaderFunc, idx int, src HTTPDownloaderSrc) (err error) {
+	// Defaults
+	if src.Method == "" {
+		src.Method = http.MethodGet
+	}
+
+	// Create request
+	var r *http.Request
+	if r, err = http.NewRequestWithContext(ctx, src.Method, src.URL, src.Body); err != nil {
+		err = fmt.Errorf("astikit: creating request to %s failed: %w", src.URL, err)
+		return
+	}
+
+	// Copy header
+	for k := range src.Header {
+		r.Header.Set(k, src.Header.Get(k))
+	}
+
+	// Send request
+	var resp *http.Response
+	if resp, err = d.s.Send(r); err != nil {
+		err = fmt.Errorf("astikit: sending request to %s failed: %w", src.URL, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Create buffer pool item
+	buf := d.bp.New()
+
+	// Process response
+	if err = d.responseFunc(resp); err != nil {
+		err = fmt.Errorf("astikit: response for request to %s is invalid: %w", src.URL, err)
+		return
+	}
+
+	// Copy body
+	if _, err = Copy(ctx, buf, resp.Body); err != nil {
+		err = fmt.Errorf("astikit: copying body of %s failed: %w", src.URL, err)
+		return
+	}
+
+	// Custom
+	if err = fn(ctx, idx, buf); err != nil {
+		err = fmt.Errorf("astikit: custom callback on %s failed: %w", src.URL, err)
+		return
+	}
+	return
+}
+
+func (d *HTTPDownloader) download(ctx context.Context, srcs []HTTPDownloaderSrc, fn httpDownloaderFunc) (err error) {
+	// Nothing to download
+	if len(srcs) == 0 {
+		return nil
+	}
+
+	// Loop through srcs
+	wg := &sync.WaitGroup{}
+	wg.Add(len(srcs))
+	for idx, src := range srcs {
+		func(idx int, src HTTPDownloaderSrc) {
+			// Update error with ctx
+			if ctx.Err() != nil {
+				err = ctx.Err()
+			}
+
+			// Do nothing if error
+			if err != nil {
+				wg.Done()
+				return
+			}
+
+			// Do
+			d.l.Do(func() {
+				// Task is done
+				defer wg.Done()
+
+				// Do
+				if errD := d.do(ctx, fn, idx, src); errD != nil && err == nil {
+					err = errD
+					return
+				}
+			})
+		}(idx, src)
+	}
+
+	// Wait
+	wg.Wait()
+	return
+}
+
+// DownloadInDirectory downloads in parallel a set of srcs and saves them in a dst directory
+func (d *HTTPDownloader) DownloadInDirectory(ctx context.Context, dst string, srcs ...HTTPDownloaderSrc) error {
+	return d.download(ctx, srcs, func(ctx context.Context, idx int, buf *BufferPoolItem) (err error) {
+		// Make sure to close buffer
+		defer buf.Close()
+
+		// Make sure destination directory exists
+		if err = os.MkdirAll(dst, 0755); err != nil {
+			err = fmt.Errorf("astikit: mkdirall %s failed: %w", dst, err)
+			return
+		}
+
+		// Create destination file
+		var f *os.File
+		dst := filepath.Join(dst, filepath.Base(srcs[idx].URL))
+		if f, err = os.Create(dst); err != nil {
+			err = fmt.Errorf("astikit: creating %s failed: %w", dst, err)
+			return
+		}
+		defer f.Close()
+
+		// Copy buffer
+		if _, err = Copy(ctx, f, buf); err != nil {
+			err = fmt.Errorf("astikit: copying content to %s failed: %w", dst, err)
+			return
+		}
+		return
+	})
+}
+
+// DownloadInWriter downloads in parallel a set of srcs and concatenates them in a writer while
+// maintaining the initial order
+func (d *HTTPDownloader) DownloadInWriter(ctx context.Context, dst io.Writer, srcs ...HTTPDownloaderSrc) error {
+	// Init
+	type chunk struct {
+		buf *BufferPoolItem
+		idx int
+	}
+	var cs []chunk
+	var m sync.Mutex // Locks cs
+	var requiredIdx int
+
+	// Make sure to close all buffers
+	defer func() {
+		for _, c := range cs {
+			c.buf.Close()
+		}
+	}()
+
+	// Download
+	return d.download(ctx, srcs, func(ctx context.Context, idx int, buf *BufferPoolItem) (err error) {
+		// Lock
+		m.Lock()
+		defer m.Unlock()
+
+		// Check where to insert chunk
+		var idxInsert = -1
+		for idxChunk := 0; idxChunk < len(cs); idxChunk++ {
+			if idx < cs[idxChunk].idx {
+				idxInsert = idxChunk
+				break
+			}
+		}
+
+		// Create chunk
+		c := chunk{
+			buf: buf,
+			idx: idx,
+		}
+
+		// Add chunk
+		if idxInsert > -1 {
+			cs = append(cs[:idxInsert], append([]chunk{c}, cs[idxInsert:]...)...)
+		} else {
+			cs = append(cs, c)
+		}
+
+		// Loop through chunks
+		for idxChunk := 0; idxChunk < len(cs); idxChunk++ {
+			// Get chunk
+			c := cs[idxChunk]
+
+			// The chunk should be copied
+			if c.idx == requiredIdx {
+				// Copy chunk content
+				// Do not check error right away since we still want to close the buffer
+				// and remove the chunk
+				_, err = Copy(ctx, dst, c.buf)
+
+				// Close buffer
+				c.buf.Close()
+
+				// Remove chunk
+				requiredIdx++
+				cs = append(cs[:idxChunk], cs[idxChunk+1:]...)
+				idxChunk--
+
+				// Check error
+				if err != nil {
+					err = fmt.Errorf("astikit: copying chunk #%d to dst failed: %w", c.idx, err)
+					return
+				}
+			}
+		}
+		return
+	})
+}
+
+// DownloadInFile downloads in parallel a set of srcs and concatenates them in a dst file while
+// maintaining the initial order
+func (d *HTTPDownloader) DownloadInFile(ctx context.Context, dst string, srcs ...HTTPDownloaderSrc) (err error) {
+	// Make sure destination directory exists
+	if err = os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		err = fmt.Errorf("astikit: mkdirall %s failed: %w", filepath.Dir(dst), err)
+		return
+	}
+
+	// Create destination file
+	var f *os.File
+	if f, err = os.Create(dst); err != nil {
+		err = fmt.Errorf("astikit: creating %s failed: %w", dst, err)
+		return
+	}
+	defer f.Close()
+
+	// Download in writer
+	return d.DownloadInWriter(ctx, f, srcs...)
 }
 
 // HTTPMiddleware represents an HTTP middleware

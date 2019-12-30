@@ -8,17 +8,17 @@ import (
 	"testing"
 )
 
-func TestCopyFile(t *testing.T) {
-	checkFile := func(t *testing.T, p string, e string) {
-		b, err := ioutil.ReadFile(p)
-		if err != nil {
-			t.Errorf("expected no error, got %+v", err)
-		}
-		if g := string(b); e != g {
-			t.Errorf("expected %s, got %s", e, g)
-		}
+func checkFile(t *testing.T, p string, e string) {
+	b, err := ioutil.ReadFile(p)
+	if err != nil {
+		t.Errorf("expected no error, got %+v", err)
 	}
+	if g := string(b); e != g {
+		t.Errorf("expected %s, got %s", e, g)
+	}
+}
 
+func TestCopyFile(t *testing.T) {
 	// Create temporary dir
 	p, err := ioutil.TempDir("", "")
 	if err != nil {

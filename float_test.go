@@ -44,4 +44,12 @@ func TestRational(t *testing.T) {
 	if e, g := 0.5, r.ToFloat64(); e != g {
 		t.Errorf("expected %+v, got %+v", e, g)
 	}
+	r = NewRational(1, 2)
+	b, err := r.MarshalText()
+	if err != nil {
+		t.Errorf("expected no error, got %+v", err)
+	}
+	if e, g := "1/2", string(b); e != g {
+		t.Errorf("expected %s, got %s", e, g)
+	}
 }

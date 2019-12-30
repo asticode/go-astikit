@@ -3,6 +3,7 @@ package astikit
 import (
 	"context"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -13,7 +14,7 @@ func TestChan(t *testing.T) {
 	var o []int
 	go func() {
 		c.Add(func() {
-			time.Sleep(time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 			o = append(o, 1)
 		})
 		c.Stop()
@@ -28,7 +29,7 @@ func TestChan(t *testing.T) {
 	o = []int{}
 	go func() {
 		c.Add(func() {
-			time.Sleep(time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 			o = append(o, 1)
 		})
 		c.Stop()
@@ -94,5 +95,32 @@ func TestChan(t *testing.T) {
 	c.Start(context.Background())
 	if e := []int{1, 2, 3, 4}; !reflect.DeepEqual(o, e) {
 		t.Errorf("expected %+v, got %+v", e, o)
+	}
+}
+
+func TestGoroutineLimiter(t *testing.T) {
+	l := NewGoroutineLimiter(GoroutineLimiterOptions{Max: 2})
+	defer l.Close()
+	var c, max int
+	const n = 4
+	wg := &sync.WaitGroup{}
+	wg.Add(n)
+	fn := func() {
+		defer wg.Done()
+		defer func() {
+			c--
+		}()
+		c++
+		if c > max {
+			max = c
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	for idx := 0; idx < n; idx++ {
+		l.Do(fn)
+	}
+	wg.Wait()
+	if e := 2; e != max {
+		t.Errorf("expected %+v, got %+v", e, max)
 	}
 }

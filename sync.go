@@ -1,6 +1,7 @@
 package astikit
 
 import (
+	"bytes"
 	"context"
 	"sync"
 )
@@ -209,4 +210,126 @@ func (c *Chan) AddStats(s *Stater) {
 		Label:       "Wait ratio",
 		Unit:        "%",
 	}, c.statWait)
+}
+
+// BufferPool represents a *bytes.Buffer pool
+type BufferPool struct {
+	bp *sync.Pool
+}
+
+// NewBufferPool creates a new BufferPool
+func NewBufferPool() *BufferPool {
+	return &BufferPool{bp: &sync.Pool{New: func() interface{} { return &bytes.Buffer{} }}}
+}
+
+// New creates a new BufferPoolItem
+func (p *BufferPool) New() *BufferPoolItem {
+	return newBufferPoolItem(p.bp.Get().(*bytes.Buffer), p.bp)
+}
+
+// BufferPoolItem represents a BufferPool item
+type BufferPoolItem struct {
+	*bytes.Buffer
+	bp *sync.Pool
+}
+
+func newBufferPoolItem(b *bytes.Buffer, bp *sync.Pool) *BufferPoolItem {
+	return &BufferPoolItem{
+		Buffer: b,
+		bp:     bp,
+	}
+}
+
+// Close implements the io.Closer interface
+func (i *BufferPoolItem) Close() error {
+	i.Reset()
+	i.bp.Put(i.Buffer)
+	return nil
+}
+
+// GoroutineLimiter is an object capable of doing several things in parallel while maintaining the
+// max number of things running in parallel under a threshold
+type GoroutineLimiter struct {
+	busy   int
+	c      *sync.Cond
+	ctx    context.Context
+	cancel context.CancelFunc
+	o      GoroutineLimiterOptions
+}
+
+// GoroutineLimiterOptions represents GoroutineLimiter options
+type GoroutineLimiterOptions struct {
+	Max int
+}
+
+// NewGoroutineLimiter creates a new GoroutineLimiter
+func NewGoroutineLimiter(o GoroutineLimiterOptions) (l *GoroutineLimiter) {
+	l = &GoroutineLimiter{
+		c: sync.NewCond(&sync.Mutex{}),
+		o: o,
+	}
+	if l.o.Max <= 0 {
+		l.o.Max = 1
+	}
+	l.ctx, l.cancel = context.WithCancel(context.Background())
+	go l.handleCtx()
+	return
+}
+
+// Close closes the limiter properly
+func (l *GoroutineLimiter) Close() error {
+	l.cancel()
+	return nil
+}
+
+func (l *GoroutineLimiter) handleCtx() {
+	<-l.ctx.Done()
+	l.c.L.Lock()
+	l.c.Broadcast()
+	l.c.L.Unlock()
+}
+
+// GoroutineLimiterFunc is a GoroutineLimiter func
+type GoroutineLimiterFunc func()
+
+// Do executes custom work in a goroutine
+func (l *GoroutineLimiter) Do(fn GoroutineLimiterFunc) (err error) {
+	// Check context in case the limiter has already been closed
+	if err = l.ctx.Err(); err != nil {
+		return
+	}
+
+	// Lock
+	l.c.L.Lock()
+
+	// Wait for a goroutine to be available
+	for l.busy >= l.o.Max {
+		l.c.Wait()
+	}
+
+	// Check context in case the limiter has been closed while waiting
+	if err = l.ctx.Err(); err != nil {
+		return
+	}
+
+	// Increment
+	l.busy++
+
+	// Unlock
+	l.c.L.Unlock()
+
+	// Execute in a goroutine
+	go func() {
+		// Decrement
+		defer func() {
+			l.c.L.Lock()
+			l.busy--
+			l.c.Signal()
+			l.c.L.Unlock()
+		}()
+
+		// Execute
+		fn()
+	}()
+	return
 }
