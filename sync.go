@@ -337,28 +337,29 @@ func (l *GoroutineLimiter) Do(fn GoroutineLimiterFunc) (err error) {
 // Eventer represents an object that can dispatch simple events (name + payload)
 type Eventer struct {
 	c  *Chan
-	hs map[string][]EventHandler
+	hs map[string][]EventerHandler
 	mh *sync.Mutex
 }
 
+// EventerOptions represents Eventer options
 type EventerOptions struct {
 	Chan ChanOptions
 }
 
-// EventHandler represents a function that can handle the payload of an event
-type EventHandler func(payload interface{})
+// EventerHandler represents a function that can handle the payload of an event
+type EventerHandler func(payload interface{})
 
 // NewEventer creates a new eventer
 func NewEventer(o EventerOptions) *Eventer {
 	return &Eventer{
 		c:  NewChan(o.Chan),
-		hs: make(map[string][]EventHandler),
+		hs: make(map[string][]EventerHandler),
 		mh: &sync.Mutex{},
 	}
 }
 
 // On adds an handler for a specific name
-func (e *Eventer) On(name string, h EventHandler) {
+func (e *Eventer) On(name string, h EventerHandler) {
 	// Lock
 	e.mh.Lock()
 	defer e.mh.Unlock()
@@ -381,7 +382,7 @@ func (e *Eventer) Dispatch(name string, payload interface{}) {
 
 	// Loop through handlers
 	for _, h := range hs {
-		func(h EventHandler) {
+		func(h EventerHandler) {
 			// Add to chan
 			e.c.Add(func() {
 				h(payload)
