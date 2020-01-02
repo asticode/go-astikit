@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// Chan constants
 const (
 	ChanAddStrategyBlockWhenStarted = "block.when.started"
 	ChanAddStrategyNoBlock          = "no.block"

@@ -25,6 +25,7 @@ func maxPCMSample(bitDepth int) int {
 	return int(math.Pow(2, float64(bitDepth))/2.0) - 1
 }
 
+// PCMNormalize normalizes the PCM samples
 func PCMNormalize(samples []int, bitDepth int) (o []int) {
 	// Get max sample
 	var m int
@@ -61,8 +62,10 @@ func ConvertPCMBitDepth(srcSample int, srcBitDepth, dstBitDepth int) (dstSample 
 	return
 }
 
+// PCMSampleFunc is a func that can process a sample
 type PCMSampleFunc func(s int) error
 
+// PCMSampleRateConverter is an object capable of converting a PCM's sample rate
 type PCMSampleRateConverter struct {
 	b                    [][]int
 	dstSampleRate        int
@@ -74,6 +77,7 @@ type PCMSampleRateConverter struct {
 	srcSampleRate        int
 }
 
+// NewPCMSampleRateConverter creates a new PCMSampleRateConverter
 func NewPCMSampleRateConverter(srcSampleRate, dstSampleRate, numChannels int, fn PCMSampleFunc) *PCMSampleRateConverter {
 	return &PCMSampleRateConverter{
 		b:             make([][]int, numChannels),
@@ -84,6 +88,7 @@ func NewPCMSampleRateConverter(srcSampleRate, dstSampleRate, numChannels int, fn
 	}
 }
 
+// Reset resets the converter
 func (c *PCMSampleRateConverter) Reset() {
 	c.b = make([][]int, c.numChannels)
 	c.numChannelsProcessed = 0
@@ -91,6 +96,7 @@ func (c *PCMSampleRateConverter) Reset() {
 	c.numSamplesProcessed = 0
 }
 
+// Add adds a new sample to the converter
 func (c *PCMSampleRateConverter) Add(i int) (err error) {
 	// Forward sample
 	if c.srcSampleRate == c.dstSampleRate {
@@ -144,7 +150,7 @@ func (c *PCMSampleRateConverter) Add(i int) (err error) {
 			}
 		}
 
-		// Increment num samples outputed
+		// Increment num samples outputted
 		c.numSamplesOutputed++
 		return
 	}
@@ -171,7 +177,7 @@ func (c *PCMSampleRateConverter) Add(i int) (err error) {
 			}
 		}
 
-		// Increment num samples outputed
+		// Increment num samples outputted
 		c.numSamplesOutputed++
 	}
 
@@ -180,6 +186,7 @@ func (c *PCMSampleRateConverter) Add(i int) (err error) {
 	return
 }
 
+// PCMChannelsConverter is an object of converting PCM's channels
 type PCMChannelsConverter struct {
 	dstNumChannels int
 	fn             PCMSampleFunc
@@ -187,6 +194,7 @@ type PCMChannelsConverter struct {
 	srcSamples     int
 }
 
+// NewPCMChannelsConverter creates a new PCMChannelsConverter
 func NewPCMChannelsConverter(srcNumChannels, dstNumChannels int, fn PCMSampleFunc) *PCMChannelsConverter {
 	return &PCMChannelsConverter{
 		dstNumChannels: dstNumChannels,
@@ -195,10 +203,12 @@ func NewPCMChannelsConverter(srcNumChannels, dstNumChannels int, fn PCMSampleFun
 	}
 }
 
+// Reset resets the converter
 func (c *PCMChannelsConverter) Reset() {
 	c.srcSamples = 0
 }
 
+// Add adds a new sample to the converter
 func (c *PCMChannelsConverter) Add(i int) (err error) {
 	// Forward sample
 	if c.srcNumChannels == c.dstNumChannels {

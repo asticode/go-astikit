@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 )
 
+// SSHSession represents an SSH Session
 type SSHSession interface {
 	Run(string) error
 	Start(string) error
@@ -15,8 +16,10 @@ type SSHSession interface {
 	Wait() error
 }
 
+// SSHSessionFunc represents a func that can return an SSHSession
 type SSHSessionFunc func() (s SSHSession, c *Closer, err error)
 
+// SSHCopyFileFunc is the SSH CopyFileFunc that allows doing SSH copies
 func SSHCopyFileFunc(fn SSHSessionFunc) CopyFileFunc {
 	return func(ctx context.Context, dst string, srcStat os.FileInfo, srcFile *os.File) (err error) {
 		// Check context

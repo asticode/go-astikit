@@ -24,6 +24,7 @@ type ExecHandler struct {
 	stopped bool
 }
 
+// Status returns the cmd status
 func (h *ExecHandler) Status() string {
 	if h.ctx.Err() != nil {
 		if h.stopped || h.err == nil {
@@ -34,6 +35,7 @@ func (h *ExecHandler) Status() string {
 	return ExecStatusRunning
 }
 
+// Stop stops the cmd
 func (h *ExecHandler) Stop() {
 	h.o.Do(func() {
 		h.cancel()

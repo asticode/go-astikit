@@ -1,10 +1,12 @@
 package astikit
 
+// StdLogger represents a standard logger
 type StdLogger interface {
 	Print(v ...interface{})
 	Printf(format string, v ...interface{})
 }
 
+// SeverityLogger represents a severity logger
 type SeverityLogger interface {
 	Debug(v ...interface{})
 	Debugf(format string, v ...interface{})
@@ -37,6 +39,7 @@ func (l *severityLogger) Errorf(format string, v ...interface{}) { l.errorf(form
 func (l *severityLogger) Info(v ...interface{})                  { l.info(v...) }
 func (l *severityLogger) Infof(format string, v ...interface{})  { l.infof(format, v...) }
 
+// AdaptStdLogger transforms an StdLogger into a SeverityLogger
 func AdaptStdLogger(i StdLogger) SeverityLogger {
 	l := newSeverityLogger()
 	if i != nil {
