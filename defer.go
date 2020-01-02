@@ -2,8 +2,6 @@ package astikit
 
 import (
 	"sync"
-
-	"github.com/asticode/go-astilog"
 )
 
 // CloseFunc is a method that closes something
@@ -27,8 +25,6 @@ func (c *Closer) Close() error {
 	// Lock
 	c.m.Lock()
 	defer c.m.Unlock()
-
-	astilog.Debug("test")
 
 	// Loop through closers
 	err := NewErrors()
