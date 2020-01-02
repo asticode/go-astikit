@@ -50,6 +50,6 @@ func TestSSHCopyFunc(t *testing.T) {
 		t.Errorf("expected %+v, got %+v", e, s.cmds)
 	}
 	if e, g := "C0644 1 dst\n0\x00", s.buf.String(); e != g {
-		t.Errorf("expected %s, got %s", e, g)
+		t.Errorf("expected %+v, got %+v", []byte(e), []byte(g))
 	}
 }

@@ -131,6 +131,7 @@ func TestEventer(t *testing.T) {
 	e.On("1", func(payload interface{}) { o = append(o, payload.(string)) })
 	e.On("2", func(payload interface{}) { o = append(o, payload.(string)) })
 	go func() {
+		time.Sleep(10 * time.Millisecond)
 		e.Dispatch("1", "1.1")
 		e.Dispatch("2", "2")
 		e.Dispatch("1", "1.2")
