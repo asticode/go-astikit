@@ -118,3 +118,20 @@ func TestGoroutineLimiter(t *testing.T) {
 		t.Errorf("expected %+v, got %+v", e, max)
 	}
 }
+
+func TestEventer(t *testing.T) {
+	e := NewEventer(EventerOptions{Chan: ChanOptions{ProcessAll: true}})
+	var o []string
+	e.On("1", func(payload interface{}) { o = append(o, payload.(string)) })
+	e.On("2", func(payload interface{}) { o = append(o, payload.(string)) })
+	go func() {
+		e.Dispatch("1", "1.1")
+		e.Dispatch("2", "2")
+		e.Dispatch("1", "1.2")
+		e.Stop()
+	}()
+	e.Start(context.Background())
+	if e := []string{"1.1", "2", "1.2"}; !reflect.DeepEqual(e, o) {
+		t.Errorf("expected %+v, got %+v", e, o)
+	}
+}

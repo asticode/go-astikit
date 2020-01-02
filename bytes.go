@@ -119,15 +119,23 @@ func (p *bytesPadder) pad(i []byte) []byte {
 	}
 }
 
+// PadOption represents a Pad option
 type PadOption func(p *bytesPadder)
 
+// PadCut is a PadOption
+// It indicates to the padder it must cut the input to the provided length
+// if its original length is bigger
 func PadCut(p *bytesPadder) { p.cut = true }
 
+// PadLeft is a PadOption
+// It indicates additionnal bytes have to be added to the left
 func PadLeft(p *bytesPadder) { p.direction = padLeft }
 
+// PadRight is a PadOption
+// It indicates additionnal bytes have to be added to the right
 func PadRight(p *bytesPadder) { p.direction = padRight }
 
-// BytesPad pads the slice of bytes
+// BytesPad pads the slice of bytes with additionnal options
 func BytesPad(i []byte, repeat byte, length int, options ...PadOption) []byte {
 	p := newBytesPadder(repeat, length)
 	for _, o := range options {
@@ -136,7 +144,7 @@ func BytesPad(i []byte, repeat byte, length int, options ...PadOption) []byte {
 	return p.pad(i)
 }
 
-// StrPad pads the string
+// StrPad pads the string with additionnal options
 func StrPad(i string, repeat rune, length int, options ...PadOption) string {
 	return string(BytesPad([]byte(i), byte(repeat), length, options...))
 }

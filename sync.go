@@ -333,3 +333,74 @@ func (l *GoroutineLimiter) Do(fn GoroutineLimiterFunc) (err error) {
 	}()
 	return
 }
+
+// Eventer represents an object that can dispatch simple events (name + payload)
+type Eventer struct {
+	c  *Chan
+	hs map[string][]EventHandler
+	mh *sync.Mutex
+}
+
+type EventerOptions struct {
+	Chan ChanOptions
+}
+
+// EventHandler represents a function that can handle the payload of an event
+type EventHandler func(payload interface{})
+
+// NewEventer creates a new eventer
+func NewEventer(o EventerOptions) *Eventer {
+	return &Eventer{
+		c:  NewChan(o.Chan),
+		hs: make(map[string][]EventHandler),
+		mh: &sync.Mutex{},
+	}
+}
+
+// On adds an handler for a specific name
+func (e *Eventer) On(name string, h EventHandler) {
+	// Lock
+	e.mh.Lock()
+	defer e.mh.Unlock()
+
+	// Add handler
+	e.hs[name] = append(e.hs[name], h)
+}
+
+// Dispatch dispatches a payload for a specific name
+func (e *Eventer) Dispatch(name string, payload interface{}) {
+	// Lock
+	e.mh.Lock()
+	defer e.mh.Unlock()
+
+	// No handlers
+	hs, ok := e.hs[name]
+	if !ok {
+		return
+	}
+
+	// Loop through handlers
+	for _, h := range hs {
+		func(h EventHandler) {
+			// Add to chan
+			e.c.Add(func() {
+				h(payload)
+			})
+		}(h)
+	}
+}
+
+// Start starts the eventer. It is blocking
+func (e *Eventer) Start(ctx context.Context) {
+	e.c.Start(ctx)
+}
+
+// Stop stops the eventer
+func (e *Eventer) Stop() {
+	e.c.Stop()
+}
+
+// Reset resets the eventer
+func (e *Eventer) Reset() {
+	e.c.Reset()
+}
