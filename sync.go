@@ -3,7 +3,11 @@ package astikit
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
+	"runtime"
 	"sync"
+	"time"
 )
 
 const (
@@ -404,4 +408,78 @@ func (e *Eventer) Stop() {
 // Reset resets the eventer
 func (e *Eventer) Reset() {
 	e.c.Reset()
+}
+
+// RWMutex represents a RWMutex capable of logging its actions to ease deadlock debugging
+type RWMutex struct {
+	c string // Last successful caller
+	l SeverityLogger
+	m *sync.RWMutex
+	n string // Name
+}
+
+// RWMutexOptions represents RWMutex options
+type RWMutexOptions struct {
+	Logger StdLogger
+	Name   string
+}
+
+// NewRWMutex creates a new RWMutex
+func NewRWMutex(o RWMutexOptions) *RWMutex {
+	return &RWMutex{
+		l: AdaptStdLogger(o.Logger),
+		m: &sync.RWMutex{},
+		n: o.Name,
+	}
+}
+
+func (m *RWMutex) caller() (o string) {
+	if _, file, line, ok := runtime.Caller(2); ok {
+		o = fmt.Sprintf("%s:%d", file, line)
+	}
+	return
+}
+
+// Lock write locks the mutex
+func (m *RWMutex) Lock() {
+	c := m.caller()
+	m.l.Debugf("astikit: requesting lock for %s at %s", m.n, c)
+	m.m.Lock()
+	m.l.Debugf("astikit: lock acquired for %s at %s", m.n, c)
+	m.c = c
+}
+
+// Unlock write unlocks the mutex
+func (m *RWMutex) Unlock() {
+	m.m.Unlock()
+	m.l.Debugf("astikit: unlock executed for %s", m.n)
+}
+
+// RLock read locks the mutex
+func (m *RWMutex) RLock() {
+	c := m.caller()
+	m.l.Debugf("astikit: requesting rlock for %s at %s", m.n, c)
+	m.m.RLock()
+	m.l.Debugf("astikit: rlock acquired for %s at %s", m.n, c)
+	m.c = c
+}
+
+// RUnlock read unlocks the mutex
+func (m *RWMutex) RUnlock() {
+	m.m.RUnlock()
+	m.l.Debugf("astikit: unlock executed for %s", m.n)
+}
+
+// IsDeadlocked checks whether the mutex is deadlocked with a given timeout
+// and returns the last caller
+func (m *RWMutex) IsDeadlocked(timeout time.Duration) (bool, string) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	go func() {
+		m.m.Lock()
+		cancel()
+		m.m.Unlock()
+	}()
+	<-ctx.Done()
+	return errors.Is(ctx.Err(), context.DeadlineExceeded), m.c
 }

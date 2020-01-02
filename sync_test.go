@@ -3,6 +3,7 @@ package astikit
 import (
 	"context"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -134,4 +135,30 @@ func TestEventer(t *testing.T) {
 	if e := []string{"1.1", "2", "1.2"}; !reflect.DeepEqual(e, o) {
 		t.Errorf("expected %+v, got %+v", e, o)
 	}
+}
+
+func TestRWMutex(t *testing.T) {
+	m := NewRWMutex(RWMutexOptions{Name: "test"})
+	d, _ := m.IsDeadlocked(time.Millisecond)
+	if d {
+		t.Error("expected false, got true")
+	}
+	m.Lock()
+	d, c := m.IsDeadlocked(time.Millisecond)
+	if !d {
+		t.Error("expected true, got false")
+	}
+	if e := "github.com/asticode/go-astikit/sync_test.go:"; !strings.Contains(c, e) {
+		t.Errorf("%s should contain %s", c, e)
+	}
+	m.Unlock()
+	m.RLock()
+	d, c = m.IsDeadlocked(time.Millisecond)
+	if !d {
+		t.Error("expected true, got false")
+	}
+	if e := "github.com/asticode/go-astikit/sync_test.go:"; !strings.Contains(c, e) {
+		t.Errorf("%s should contain %s", c, e)
+	}
+	m.RUnlock()
 }
