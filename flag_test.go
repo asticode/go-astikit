@@ -26,9 +26,12 @@ func TestFlagStrings(t *testing.T) {
 	f := NewFlagStrings()
 	flag.Var(f, "t", "")
 	flag.CommandLine.Parse([]string{"-t", "1", "-t", "2", "-t", "1"})
-	if e := FlagStrings(map[string]bool{
-		"1": true,
-		"2": true,
+	if e := (FlagStrings{
+		Map: map[string]bool{
+			"1": true,
+			"2": true,
+		},
+		Slice: &[]string{"1", "2"},
 	}); !reflect.DeepEqual(e, f) {
 		t.Errorf("expected %+v, got %+v", e, f)
 	}

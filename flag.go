@@ -16,24 +16,30 @@ func FlagCmd() (o string) {
 
 // FlagStrings represents a flag that can be set several times and
 // stores unique string values
-type FlagStrings map[string]bool
+type FlagStrings struct {
+	Map   map[string]bool
+	Slice *[]string
+}
 
 // NewFlagStrings creates a new FlagStrings
 func NewFlagStrings() FlagStrings {
-	return FlagStrings(make(map[string]bool))
+	return FlagStrings{
+		Map:   make(map[string]bool),
+		Slice: &[]string{},
+	}
 }
 
 // String implements the flag.Value interface
 func (f FlagStrings) String() string {
-	var s []string
-	for k := range f {
-		s = append(s, k)
-	}
-	return strings.Join(s, ",")
+	return strings.Join(*f.Slice, ",")
 }
 
 // Set implements the flag.Value interface
 func (f FlagStrings) Set(i string) error {
-	f[i] = true
+	if _, ok := f.Map[i]; ok {
+		return nil
+	}
+	f.Map[i] = true
+	*f.Slice = append(*f.Slice, i)
 	return nil
 }
