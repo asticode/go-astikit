@@ -3,6 +3,7 @@ package astikit
 import (
 	"context"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -12,7 +13,13 @@ func TestStater(t *testing.T) {
 	var c int64
 	nowPrevious := now
 	defer func() { now = nowPrevious }()
-	now = func() time.Time { return time.Unix(c*5, 0) }
+	m := &sync.Mutex{}
+	nowV := time.Unix(c*5, 0)
+	now = func() time.Time {
+		m.Lock()
+		defer m.Unlock()
+		return nowV
+	}
 
 	// Add stats
 	s1 := NewCounterAvgStat()
@@ -30,11 +37,13 @@ func TestStater(t *testing.T) {
 			switch c {
 			case 1:
 				s1.Add(10)
-				nowPrevious := now
-				defer func() { now = nowPrevious }()
-				now = func() time.Time { return time.Unix(0, 0) }
+				m.Lock()
+				nowV = time.Unix(0, 0)
+				m.Unlock()
 				s2.Begin()
-				now = func() time.Time { return time.Unix(5, 0) }
+				m.Lock()
+				nowV = time.Unix(5, 0)
+				m.Unlock()
 				s2.End()
 			default:
 				ss = stats

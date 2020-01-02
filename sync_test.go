@@ -96,6 +96,7 @@ func TestChan(t *testing.T) {
 func TestGoroutineLimiter(t *testing.T) {
 	l := NewGoroutineLimiter(GoroutineLimiterOptions{Max: 2})
 	defer l.Close()
+	m := &sync.Mutex{}
 	var c, max int
 	const n = 4
 	wg := &sync.WaitGroup{}
@@ -103,12 +104,16 @@ func TestGoroutineLimiter(t *testing.T) {
 	fn := func() {
 		defer wg.Done()
 		defer func() {
+			m.Lock()
 			c--
+			m.Unlock()
 		}()
+		m.Lock()
 		c++
 		if c > max {
 			max = c
 		}
+		m.Unlock()
 		time.Sleep(time.Millisecond)
 	}
 	for idx := 0; idx < n; idx++ {

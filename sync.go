@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -28,8 +29,7 @@ type Chan struct {
 	mc       *sync.Mutex // Locks ctx
 	mf       *sync.Mutex // Locks fs
 	o        ChanOptions
-	oStart   *sync.Once
-	oStop    *sync.Once
+	running  uint32
 	statWait *DurationPercentageStat
 }
 
@@ -52,32 +52,31 @@ type ChanOptions struct {
 // NewChan creates a new Chan
 func NewChan(o ChanOptions) *Chan {
 	return &Chan{
-		c:      sync.NewCond(&sync.Mutex{}),
-		mc:     &sync.Mutex{},
-		mf:     &sync.Mutex{},
-		o:      o,
-		oStart: &sync.Once{},
-		oStop:  &sync.Once{},
+		c:  sync.NewCond(&sync.Mutex{}),
+		mc: &sync.Mutex{},
+		mf: &sync.Mutex{},
+		o:  o,
 	}
 }
 
-// Start starts the chan by looping through functions in the buffer and executing them if any, or waiting for a new one
-// otherwise
+// Start starts the chan by looping through functions in the buffer and
+// executing them if any, or waiting for a new one otherwise
 func (c *Chan) Start(ctx context.Context) {
 	// Make sure to start only once
-	c.oStart.Do(func() {
+	if atomic.CompareAndSwapUint32(&c.running, 0, 1) {
+		// Update status
+		defer atomic.StoreUint32(&c.running, 0)
+
 		// Create context
 		c.mc.Lock()
 		c.ctx, c.cancel = context.WithCancel(ctx)
+		d := c.ctx.Done()
 		c.mc.Unlock()
-
-		// Reset once
-		c.oStop = &sync.Once{}
 
 		// Handle context
 		go func() {
 			// Wait for context to be done
-			<-c.ctx.Done()
+			<-d
 
 			// Signal
 			c.c.L.Lock()
@@ -133,21 +132,16 @@ func (c *Chan) Start(ctx context.Context) {
 			c.fs = c.fs[1:]
 			c.mf.Unlock()
 		}
-	})
+	}
 }
 
 // Stop stops the chan
 func (c *Chan) Stop() {
-	// Make sure to stop only once
-	c.oStop.Do(func() {
-		// Cancel context
-		if c.cancel != nil {
-			c.cancel()
-		}
-
-		// Reset once
-		c.oStart = &sync.Once{}
-	})
+	c.mc.Lock()
+	if c.cancel != nil {
+		c.cancel()
+	}
+	c.mc.Unlock()
 }
 
 // Add adds a new item to the chan

@@ -3,19 +3,19 @@ package astikit
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 // Stater is an object that can compute and handle stats
 type Stater struct {
-	cancel context.CancelFunc
-	ctx    context.Context
-	h      StatsHandleFunc
-	m      *sync.Mutex // Locks ss
-	oStart *sync.Once
-	oStop  *sync.Once
-	period time.Duration
-	ss     []stat
+	cancel  context.CancelFunc
+	ctx     context.Context
+	h       StatsHandleFunc
+	m       *sync.Mutex // Locks ss
+	period  time.Duration
+	running uint32
+	ss      []stat
 }
 
 // StatsHandleFunc is a method that can handle stats
@@ -57,26 +57,24 @@ func NewStater(o StaterOptions) *Stater {
 	return &Stater{
 		h:      o.HandleFunc,
 		m:      &sync.Mutex{},
-		oStart: &sync.Once{},
-		oStop:  &sync.Once{},
 		period: o.Period,
 	}
 }
 
 // Start starts the stater
 func (s *Stater) Start(ctx context.Context) {
-	// Make sure the stater can only be started once
-	s.oStart.Do(func() {
-		// Check context
-		if ctx.Err() != nil {
-			return
-		}
+	// Check context
+	if ctx.Err() != nil {
+		return
+	}
+
+	// Make sure to start only once
+	if atomic.CompareAndSwapUint32(&s.running, 0, 1) {
+		// Update status
+		defer atomic.StoreUint32(&s.running, 0)
 
 		// Reset context
 		s.ctx, s.cancel = context.WithCancel(ctx)
-
-		// Reset once
-		s.oStop = &sync.Once{}
 
 		// Start stats
 		s.m.Lock()
@@ -122,7 +120,7 @@ func (s *Stater) Start(ctx context.Context) {
 				return
 			}
 		}
-	})
+	}
 }
 
 // AddStat adds a stat
@@ -137,16 +135,9 @@ func (s *Stater) AddStat(m StatMetadata, h StatHandler) {
 
 // Stop stops the stater
 func (s *Stater) Stop() {
-	// Make sure the stater can only be stopped once
-	s.oStop.Do(func() {
-		// Cancel context
-		if s.cancel != nil {
-			s.cancel()
-		}
-
-		// Reset once
-		s.oStart = &sync.Once{}
-	})
+	if s.cancel != nil {
+		s.cancel()
+	}
 }
 
 // StatsMetadata returns the stats metadata
