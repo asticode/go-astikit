@@ -3,6 +3,7 @@ go:
 - 1.x
 - tip
 install:
+- bash .travis.sh
 - go get -t ./...
 - go get golang.org/x/tools/cmd/cover
 - go get github.com/mattn/goveralls
@@ -10,6 +11,5 @@ matrix:
   allow_failures:
   - go: tip
 script:
-- bash .travis.sh
 - go test -race -v -coverprofile=coverage.out
 - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci
