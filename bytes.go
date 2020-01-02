@@ -74,3 +74,69 @@ func (i *BytesIterator) Dump() (bs []byte) {
 func (i *BytesIterator) Len() int {
 	return len(i.bs)
 }
+
+const (
+	padRight = "right"
+	padLeft  = "left"
+)
+
+type bytesPadder struct {
+	cut       bool
+	direction string
+	length    int
+	repeat    byte
+}
+
+func newBytesPadder(repeat byte, length int) *bytesPadder {
+	return &bytesPadder{
+		direction: padLeft,
+		length:    length,
+		repeat:    repeat,
+	}
+}
+
+func (p *bytesPadder) pad(i []byte) []byte {
+	if len(i) == p.length {
+		return i
+	} else if len(i) > p.length {
+		if p.cut {
+			return i[:p.length]
+		}
+		return i
+	} else {
+		o := make([]byte, len(i))
+		copy(o, i)
+		for idx := 0; idx < p.length-len(i); idx++ {
+			if p.direction == padRight {
+				o = append(o, p.repeat)
+			} else {
+				o = append([]byte{p.repeat}, o...)
+			}
+			o = append(o, p.repeat)
+		}
+		o = o[:p.length]
+		return o
+	}
+}
+
+type PadOption func(p *bytesPadder)
+
+func PadCut(p *bytesPadder) { p.cut = true }
+
+func PadLeft(p *bytesPadder) { p.direction = padLeft }
+
+func PadRight(p *bytesPadder) { p.direction = padRight }
+
+// BytesPad pads the slice of bytes
+func BytesPad(i []byte, repeat byte, length int, options ...PadOption) []byte {
+	p := newBytesPadder(repeat, length)
+	for _, o := range options {
+		o(p)
+	}
+	return p.pad(i)
+}
+
+// StrPad pads the string
+func StrPad(i string, repeat rune, length int, options ...PadOption) string {
+	return string(BytesPad([]byte(i), byte(repeat), length, options...))
+}

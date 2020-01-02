@@ -66,3 +66,44 @@ func TestBytesIterator(t *testing.T) {
 		t.Errorf("expected %+v, got %+v", e, g)
 	}
 }
+func TestBytesPad(t *testing.T) {
+	if e, g := []byte("test"), BytesPad([]byte("test"), ' ', 4); !bytes.Equal(e, g) {
+		t.Errorf("expected %+v, got %+v", e, g)
+	}
+	if e, g := []byte("testtest"), BytesPad([]byte("testtest"), ' ', 4); !bytes.Equal(e, g) {
+		t.Errorf("expected %+v, got %+v", e, g)
+	}
+	if e, g := []byte("test"), BytesPad([]byte("testtest"), ' ', 4, PadCut); !bytes.Equal(e, g) {
+		t.Errorf("expected %+v, got %+v", e, g)
+	}
+	if e, g := []byte("  test"), BytesPad([]byte("test"), ' ', 6); !bytes.Equal(e, g) {
+		t.Errorf("expected %+v, got %+v", e, g)
+	}
+	if e, g := []byte("test  "), BytesPad([]byte("test"), ' ', 6, PadRight); !bytes.Equal(e, g) {
+		t.Errorf("expected %+v, got %+v", e, g)
+	}
+	if e, g := []byte("    "), BytesPad([]byte{}, ' ', 4); !bytes.Equal(e, g) {
+		t.Errorf("expected %+v, got %+v", e, g)
+	}
+}
+
+func TestStrPad(t *testing.T) {
+	if e, g := "test", StrPad("test", ' ', 4); e != g {
+		t.Errorf("expected %+v, got %+v", e, g)
+	}
+	if e, g := "testtest", StrPad("testtest", ' ', 4); e != g {
+		t.Errorf("expected %+v, got %+v", e, g)
+	}
+	if e, g := "test", StrPad("testtest", ' ', 4, PadCut); e != g {
+		t.Errorf("expected %+v, got %+v", e, g)
+	}
+	if e, g := "  test", StrPad("test", ' ', 6); e != g {
+		t.Errorf("expected %+v, got %+v", e, g)
+	}
+	if e, g := "test  ", StrPad("test", ' ', 6, PadRight); e != g {
+		t.Errorf("expected %+v, got %+v", e, g)
+	}
+	if e, g := "    ", StrPad("", ' ', 4); e != g {
+		t.Errorf("expected %+v, got %+v", e, g)
+	}
+}
