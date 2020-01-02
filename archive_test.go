@@ -12,7 +12,7 @@ func TestZip(t *testing.T) {
 	// Create temp dir
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
-		t.Fatalf("creating temp dir failed: %w", err)
+		t.Fatalf("creating temp dir failed: %s", err)
 	}
 
 	// Make sure to delete temp dir
