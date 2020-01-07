@@ -1,6 +1,7 @@
 package astikit
 
 import (
+	"errors"
 	"strings"
 	"sync"
 )
@@ -56,4 +57,15 @@ func (errs *Errors) Error() string {
 		ss = append(ss, err.Error())
 	}
 	return strings.Join(ss, " && ")
+}
+
+// ErrorCause returns the cause of an error
+func ErrorCause(err error) error {
+	for {
+		if u := errors.Unwrap(err); u != nil {
+			err = u
+			continue
+		}
+		return err
+	}
 }

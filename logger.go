@@ -84,42 +84,46 @@ func (l *completeLogger) InfoCf(ctx context.Context, format string, v ...interfa
 func (l *completeLogger) Print(v ...interface{})                 { l.print(v...) }
 func (l *completeLogger) Printf(format string, v ...interface{}) { l.printf(format, v...) }
 
-// AdaptStdLogger transforms an StdLogger into a CompleteLogger
+// AdaptStdLogger transforms an StdLogger into a CompleteLogger if needed
 func AdaptStdLogger(i StdLogger) CompleteLogger {
+	if v, ok := i.(CompleteLogger); ok {
+		return v
+	}
 	l := newCompleteLogger()
-	if i != nil {
-		l.print = i.Print
-		l.printf = i.Printf
-		if v, ok := i.(SeverityLogger); ok {
-			l.debug = v.Debug
-			l.debugf = v.Debugf
-			l.error = v.Error
-			l.errorf = v.Errorf
-			l.info = v.Info
-			l.infof = v.Infof
-		} else {
-			l.debug = l.print
-			l.debugf = l.printf
-			l.error = l.print
-			l.errorf = l.printf
-			l.info = l.print
-			l.infof = l.printf
-		}
-		if v, ok := i.(SeverityCtxLogger); ok {
-			l.debugC = v.DebugC
-			l.debugCf = v.DebugCf
-			l.errorC = v.ErrorC
-			l.errorCf = v.ErrorCf
-			l.infoC = v.InfoC
-			l.infoCf = v.InfoCf
-		} else {
-			l.debugC = func(ctx context.Context, v ...interface{}) { l.debug(v...) }
-			l.debugCf = func(ctx context.Context, format string, v ...interface{}) { l.debugf(format, v...) }
-			l.errorC = func(ctx context.Context, v ...interface{}) { l.error(v...) }
-			l.errorCf = func(ctx context.Context, format string, v ...interface{}) { l.errorf(format, v...) }
-			l.infoC = func(ctx context.Context, v ...interface{}) { l.info(v...) }
-			l.infoCf = func(ctx context.Context, format string, v ...interface{}) { l.infof(format, v...) }
-		}
+	if i == nil {
+		return l
+	}
+	l.print = i.Print
+	l.printf = i.Printf
+	if v, ok := i.(SeverityLogger); ok {
+		l.debug = v.Debug
+		l.debugf = v.Debugf
+		l.error = v.Error
+		l.errorf = v.Errorf
+		l.info = v.Info
+		l.infof = v.Infof
+	} else {
+		l.debug = l.print
+		l.debugf = l.printf
+		l.error = l.print
+		l.errorf = l.printf
+		l.info = l.print
+		l.infof = l.printf
+	}
+	if v, ok := i.(SeverityCtxLogger); ok {
+		l.debugC = v.DebugC
+		l.debugCf = v.DebugCf
+		l.errorC = v.ErrorC
+		l.errorCf = v.ErrorCf
+		l.infoC = v.InfoC
+		l.infoCf = v.InfoCf
+	} else {
+		l.debugC = func(ctx context.Context, v ...interface{}) { l.debug(v...) }
+		l.debugCf = func(ctx context.Context, format string, v ...interface{}) { l.debugf(format, v...) }
+		l.errorC = func(ctx context.Context, v ...interface{}) { l.error(v...) }
+		l.errorCf = func(ctx context.Context, format string, v ...interface{}) { l.errorf(format, v...) }
+		l.infoC = func(ctx context.Context, v ...interface{}) { l.info(v...) }
+		l.infoCf = func(ctx context.Context, format string, v ...interface{}) { l.infof(format, v...) }
 	}
 	return l
 }
