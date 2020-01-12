@@ -69,10 +69,11 @@ func NewWriterAdapter(o WriterAdapterOptions) *WriterAdapter {
 }
 
 // Close closes the adapter properly
-func (w *WriterAdapter) Close() {
+func (w *WriterAdapter) Close() error {
 	if w.buffer.Len() > 0 {
 		w.write(w.buffer.Bytes())
 	}
+	return nil
 }
 
 // Write implements the io.Writer interface
