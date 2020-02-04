@@ -137,12 +137,21 @@ func contextWithTranslatorLanguage(ctx context.Context, language string) context
 	return context.WithValue(ctx, contextKeyTranslatorLanguage, language)
 }
 
-func translatorLanguageFromContext(ctx context.Context) string {
+// TranslatorLanguageFromContext returns the translator language from the context
+func TranslatorLanguageFromContext(ctx context.Context) string {
 	v, ok := ctx.Value(contextKeyTranslatorLanguage).(string)
 	if !ok {
 		return ""
 	}
 	return v
+}
+
+// Language returns the language
+func (t *Translator) Language(language string) string {
+	if language == "" {
+		return t.o.DefaultLanguage
+	}
+	return language
 }
 
 // Translate translates a key into a specific language
@@ -151,13 +160,8 @@ func (t *Translator) Translate(language, key string) string {
 	t.m.RLock()
 	defer t.m.RUnlock()
 
-	// Default language
-	if language == "" {
-		language = t.o.DefaultLanguage
-	}
-
 	// Get translation
-	k := t.key(language, key)
+	k := t.key(t.Language(language), key)
 	v, ok := t.p[k]
 	if !ok {
 		return k
@@ -167,5 +171,5 @@ func (t *Translator) Translate(language, key string) string {
 
 // TranslateCtx translates a key using the language specified in the context
 func (t *Translator) TranslateCtx(ctx context.Context, key string) string {
-	return t.Translate(translatorLanguageFromContext(ctx), key)
+	return t.Translate(TranslatorLanguageFromContext(ctx), key)
 }
