@@ -136,6 +136,7 @@ func Unzip(ctx context.Context, dst, src string) (err error) {
 		}
 	}
 
+	// Invalid internal path
 	if internalPath != "" && len(dirs) == 0 && len(files) == 0 && len(symlinks) == 0 {
 		return fmt.Errorf("astikit: content in archive does not match specified internal path %s", internalPath)
 	}

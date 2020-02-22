@@ -26,6 +26,10 @@ func TestZip(t *testing.T) {
 		t.Errorf("expected no error, got %+v", err)
 	}
 	d := filepath.Join(dir, "with-internal", "d")
+	err = Unzip(context.Background(), d, filepath.Join(dir, "with-internal", "f.zip/invalid"))
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
 	err = Unzip(context.Background(), d, f)
 	if err != nil {
 		t.Errorf("expected no error, got %+v", err)
