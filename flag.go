@@ -31,6 +31,9 @@ func NewFlagStrings() FlagStrings {
 
 // String implements the flag.Value interface
 func (f FlagStrings) String() string {
+	if f.Slice == nil {
+		return ""
+	}
 	return strings.Join(*f.Slice, ",")
 }
 
