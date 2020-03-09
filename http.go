@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -69,6 +70,7 @@ type HTTPSender struct {
 	retryFunc  HTTPSenderRetryFunc
 	retryMax   int
 	retrySleep time.Duration
+	timeout    time.Duration
 }
 
 // HTTPSenderRetryFunc is a function that decides whether to retry an HTTP request
@@ -81,6 +83,7 @@ type HTTPSenderOptions struct {
 	RetryFunc  HTTPSenderRetryFunc
 	RetryMax   int
 	RetrySleep time.Duration
+	Timeout    time.Duration
 }
 
 // NewHTTPSender creates a new HTTP sender
@@ -91,6 +94,7 @@ func NewHTTPSender(o HTTPSenderOptions) (s *HTTPSender) {
 		retryFunc:  o.RetryFunc,
 		retryMax:   o.RetryMax,
 		retrySleep: o.RetrySleep,
+		timeout:    o.Timeout,
 	}
 	if s.client == nil {
 		s.client = &http.Client{}
@@ -110,24 +114,43 @@ func (s *HTTPSender) defaultHTTPRetryFunc(name string, resp *http.Response) bool
 }
 
 // Send sends a new *http.Request
-func (s *HTTPSender) Send(req *http.Request) (resp *http.Response, err error) {
-	return s.execWithRetry(fmt.Sprintf("%s request to %s", req.Method, req.URL), func() (*http.Response, error) { return s.client.Do(req) })
+func (s *HTTPSender) Send(req *http.Request) (*http.Response, error) {
+	return s.SendWithTimeout(req, s.timeout)
 }
 
-// name is used for logging purposes only
-func (s *HTTPSender) execWithRetry(name string, fn func() (*http.Response, error)) (resp *http.Response, err error) {
+// SendWithTimeout sends a new *http.Request with a timeout
+func (s *HTTPSender) SendWithTimeout(req *http.Request, timeout time.Duration) (resp *http.Response, err error) {
+	// Set name
+	name := req.Method + " request"
+	if req.URL != nil {
+		name += " to " + req.URL.String()
+	}
+
+	// Timeout
+	if timeout > 0 {
+		// Create context
+		ctx, cancel := context.WithTimeout(req.Context(), timeout)
+		defer cancel()
+
+		// Update request
+		req = req.WithContext(ctx)
+
+		// Update name
+		name += " with timeout " + timeout.String()
+	}
+
 	// Loop
 	// We start at retryMax + 1 so that it runs at least once even if retryMax == 0
 	tries := 0
 	for retriesLeft := s.retryMax + 1; retriesLeft > 0; retriesLeft-- {
 		// Get request name
-		nr := fmt.Sprintf("%s (%d/%d)", name, s.retryMax-retriesLeft+2, s.retryMax+1)
+		nr := name + " (" + strconv.Itoa(s.retryMax-retriesLeft+2) + "/" + strconv.Itoa(s.retryMax+1) + ")"
 		tries++
 
 		// Send request
 		var retry bool
 		s.l.Debugf("astikit: sending %s", nr)
-		if resp, err = fn(); err != nil {
+		if resp, err = s.client.Do(req); err != nil {
 			// If error is temporary, retry
 			if netError, ok := err.(net.Error); ok && netError.Temporary() {
 				s.l.Debugf("astikit: temporary error when sending %s", nr)
@@ -136,6 +159,9 @@ func (s *HTTPSender) execWithRetry(name string, fn func() (*http.Response, error
 				err = fmt.Errorf("astikit: sending %s failed: %w", nr, err)
 				return
 			}
+		} else if err = req.Context().Err(); err != nil {
+			err = fmt.Errorf("astikit: request context failed: %w", err)
+			return
 		}
 
 		// Retry
@@ -152,7 +178,7 @@ func (s *HTTPSender) execWithRetry(name string, fn func() (*http.Response, error
 	}
 
 	// Max retries limit reached
-	err = fmt.Errorf("astikit: sending %s failed after %d tries", name, tries)
+	err = fmt.Errorf("astikit: sending %s failed after %d tries: %w", name, tries, err)
 	return
 }
 

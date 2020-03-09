@@ -93,6 +93,20 @@ func TestHTTPSender(t *testing.T) {
 	if e := 3; c != e {
 		t.Errorf("expected %v, got %v", e, c)
 	}
+
+	// Timeout
+	s = NewHTTPSender(HTTPSenderOptions{
+		Client: mockedHTTPClient(func(req *http.Request) (resp *http.Response, err error) {
+			ctx, cancel := context.WithCancel(req.Context())
+			defer cancel()
+			<-ctx.Done()
+			return
+		}),
+	})
+	_, err = s.SendWithTimeout(&http.Request{}, time.Millisecond)
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
 }
 
 func TestHTTPDownloader(t *testing.T) {
