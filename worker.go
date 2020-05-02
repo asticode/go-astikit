@@ -35,11 +35,6 @@ func NewWorker(o WorkerOptions) (w *Worker) {
 
 // HandleSignals handles signals
 func (w *Worker) HandleSignals(hs ...SignalHandler) {
-	// Add default handler
-	if len(hs) == 0 {
-		hs = []SignalHandler{LoggerSignalHandler(w.l)}
-	}
-
 	// Prepend mandatory handler
 	hs = append([]SignalHandler{TermSignalHandler(w.Stop)}, hs...)
 
