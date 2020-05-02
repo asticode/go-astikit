@@ -36,6 +36,11 @@ func NewWorker(o WorkerOptions) (w *Worker) {
 // HandleSignals handles signals
 func (w *Worker) HandleSignals(hs ...SignalHandler) {
 	// Add default handler
+	if len(hs) == 0 {
+		hs = []SignalHandler{LoggerSignalHandler(w.l)}
+	}
+
+	// Prepend mandatory handler
 	hs = append([]SignalHandler{TermSignalHandler(w.Stop)}, hs...)
 
 	// Notify
@@ -47,9 +52,6 @@ func (w *Worker) HandleSignals(hs ...SignalHandler) {
 		for {
 			select {
 			case s := <-ch:
-				// Log
-				w.l.Debugf("astikit: received signal %s", s)
-
 				// Loop through handlers
 				for _, h := range hs {
 					h(s)

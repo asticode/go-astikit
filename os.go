@@ -137,3 +137,17 @@ func TermSignalHandler(f func()) SignalHandler {
 		}
 	}
 }
+
+// LoggerSignalHandler returns a SignalHandler that logs the signal
+func LoggerSignalHandler(l SeverityLogger, ignoredSignals ...os.Signal) SignalHandler {
+	ss := make(map[os.Signal]bool)
+	for _, s := range ignoredSignals {
+		ss[s] = true
+	}
+	return func(s os.Signal) {
+		if _, ok := ss[s]; ok {
+			return
+		}
+		l.Debugf("astikit: received signal %s", s)
+	}
+}
