@@ -22,10 +22,12 @@ func TestStater(t *testing.T) {
 	}
 
 	// Add stats
-	s1 := NewCounterAvgStat()
+	s1 := NewCounterRateStat()
 	m1 := StatMetadata{Description: "1"}
 	s2 := NewDurationPercentageStat()
 	m2 := StatMetadata{Description: "2"}
+	s3 := NewCounterAvgStat()
+	m3 := StatMetadata{Description: "3"}
 
 	// First time stats are computed, it actually acts as if stats were being updated
 	// Second time stats are computed, results are stored and context is cancelled
@@ -45,6 +47,9 @@ func TestStater(t *testing.T) {
 				nowV = time.Unix(5, 0)
 				m.Unlock()
 				s2.End()
+				s3.Add(10)
+				s3.Add(20)
+				s3.Add(30)
 			default:
 				ss = stats
 				cancel()
@@ -54,12 +59,13 @@ func TestStater(t *testing.T) {
 	})
 	s.AddStat(m1, s1)
 	s.AddStat(m2, s2)
-	if e, g := []StatMetadata{m1, m2}, s.StatsMetadata(); !reflect.DeepEqual(g, e) {
+	s.AddStat(m3, s3)
+	if e, g := []StatMetadata{m1, m2, m3}, s.StatsMetadata(); !reflect.DeepEqual(g, e) {
 		t.Errorf("expected %+v, got %+v", e, g)
 	}
 	defer s.Stop()
 	s.Start(ctx)
-	if e := []Stat{{StatMetadata: m1, Value: 2.0}, {StatMetadata: m2, Value: 100.0}}; !reflect.DeepEqual(e, ss) {
+	if e := []Stat{{StatMetadata: m1, Value: 2.0}, {StatMetadata: m2, Value: 100.0}, {StatMetadata: m3, Value: 20.0}}; !reflect.DeepEqual(e, ss) {
 		t.Errorf("expected %+v, got %+v", e, ss)
 	}
 }

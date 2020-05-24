@@ -233,12 +233,13 @@ func NewDurationPercentageStat() *DurationPercentageStat {
 
 type counterStat struct {
 	c         float64
-	fn        func(c float64, delta time.Duration) interface{}
+	fn        func(c, t float64, delta time.Duration) interface{}
 	isStarted bool
 	m         *sync.Mutex // Locks isStarted
+	t         float64
 }
 
-func newCounterStat(fn func(c float64, delta time.Duration) interface{}) *counterStat {
+func newCounterStat(fn func(c, t float64, delta time.Duration) interface{}) *counterStat {
 	return &counterStat{
 		fn: fn,
 		m:  &sync.Mutex{},
@@ -252,6 +253,7 @@ func (s *counterStat) Add(delta float64) {
 		return
 	}
 	s.c += delta
+	s.t++
 }
 
 func (s *counterStat) Start() {
@@ -259,6 +261,7 @@ func (s *counterStat) Start() {
 	defer s.m.Unlock()
 	s.c = 0
 	s.isStarted = true
+	s.t = 0
 }
 
 func (s *counterStat) Stop() {
@@ -271,18 +274,32 @@ func (s *counterStat) Value(delta time.Duration) interface{} {
 	s.m.Lock()
 	defer s.m.Unlock()
 	c := s.c
+	t := s.t
 	s.c = 0
-	return s.fn(c, delta)
+	s.t = 0
+	return s.fn(c, t, delta)
 }
 
-// CounterAvgStat is an object capable of computing the average value of a counter per second
+// CounterAvgStat is an object capable of computing the average value of a counter
 type CounterAvgStat struct {
 	*counterStat
 }
 
 // NewCounterAvgStat creates a new counter avg stat
 func NewCounterAvgStat() *CounterAvgStat {
-	return &CounterAvgStat{counterStat: newCounterStat(func(c float64, delta time.Duration) interface{} {
+	return &CounterAvgStat{counterStat: newCounterStat(func(c, t float64, delta time.Duration) interface{} {
+		return c / t
+	})}
+}
+
+// CounterRateStat is an object capable of computing the average value of a counter per second
+type CounterRateStat struct {
+	*counterStat
+}
+
+// NewCounterRateStat creates a new counter rate stat
+func NewCounterRateStat() *CounterRateStat {
+	return &CounterRateStat{counterStat: newCounterStat(func(c, t float64, delta time.Duration) interface{} {
 		return c / delta.Seconds()
 	})}
 }
