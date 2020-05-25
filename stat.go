@@ -227,6 +227,9 @@ type DurationPercentageStat struct {
 // NewDurationPercentageStat creates a new duration percentage stat
 func NewDurationPercentageStat() *DurationPercentageStat {
 	return &DurationPercentageStat{durationStat: newDurationStat(func(d, delta time.Duration) interface{} {
+		if delta == 0 {
+			return 0
+		}
 		return float64(d) / float64(delta) * 100
 	})}
 }
@@ -288,6 +291,9 @@ type CounterAvgStat struct {
 // NewCounterAvgStat creates a new counter avg stat
 func NewCounterAvgStat() *CounterAvgStat {
 	return &CounterAvgStat{counterStat: newCounterStat(func(c, t float64, delta time.Duration) interface{} {
+		if t == 0 {
+			return 0
+		}
 		return c / t
 	})}
 }
@@ -300,6 +306,9 @@ type CounterRateStat struct {
 // NewCounterRateStat creates a new counter rate stat
 func NewCounterRateStat() *CounterRateStat {
 	return &CounterRateStat{counterStat: newCounterStat(func(c, t float64, delta time.Duration) interface{} {
+		if delta.Seconds() == 0 {
+			return 0
+		}
 		return c / delta.Seconds()
 	})}
 }
