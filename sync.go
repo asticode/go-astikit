@@ -18,10 +18,13 @@ const (
 
 // Chan constants
 const (
+	// Calling Add() only blocks if the chan has been started and the ctx
+	// has not been canceled
 	ChanAddStrategyBlockWhenStarted = "block.when.started"
-	ChanAddStrategyNoBlock          = "no.block"
-	ChanOrderFIFO                   = "fifo"
-	ChanOrderFILO                   = "filo"
+	// Calling Add() never blocks
+	ChanAddStrategyNoBlock = "no.block"
+	ChanOrderFIFO          = "fifo"
+	ChanOrderFILO          = "filo"
 )
 
 // Chan is an object capable of executing funcs in a specific order while controlling the conditions
@@ -41,13 +44,11 @@ type Chan struct {
 
 // ChanOptions are Chan options
 type ChanOptions struct {
-	// Determines the conditions in which adding new funcs is blocking.
-	// Possible strategies are :
-	//   - calling Add() never blocks (default). Use the ChanAddStrategyNoBlock constant.
-	//   - calling Add() only blocks if the chan has been started and the ctx
-	//     has not been canceled. Use the ChanAddStrategyBlockWhenStarted constant.
+	// Determines the conditions in which Add() blocks. See constants with pattern ChanAddStrategy*
+	// Default is ChanAddStrategyNoBlock
 	AddStrategy string
-	// Order in which the funcs will be processed. See constants with the pattern ChanOrder*
+	// Order in which the funcs will be processed. See constants with pattern ChanOrder*
+	// Default is ChanOrderFIFO
 	Order string
 	// By default the funcs not yet processed when the context is cancelled are dropped.
 	// If "ProcessAll" is true,  ALL funcs are processed even after the context is cancelled.
