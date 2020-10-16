@@ -11,13 +11,14 @@ import (
 func TestStater(t *testing.T) {
 	// Update the now function so that it increments by 5s every time stats are computed
 	var c int64
+	mc := &sync.Mutex{} // Locks c
 	nowPrevious := now
 	defer func() { now = nowPrevious }()
-	m := &sync.Mutex{}
+	mn := &sync.Mutex{} // Locks nowV
 	nowV := time.Unix(c*5, 0)
 	now = func() time.Time {
-		m.Lock()
-		defer m.Unlock()
+		mn.Lock()
+		defer mn.Unlock()
 		return nowV
 	}
 
@@ -35,17 +36,19 @@ func TestStater(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := NewStater(StaterOptions{
 		HandleFunc: func(stats []Stat) {
+			mc.Lock()
+			defer mc.Unlock()
 			c++
 			switch c {
 			case 1:
 				s1.Add(10)
-				m.Lock()
+				mn.Lock()
 				nowV = time.Unix(0, 0)
-				m.Unlock()
+				mn.Unlock()
 				s2.Begin()
-				m.Lock()
+				mn.Lock()
 				nowV = time.Unix(5, 0)
-				m.Unlock()
+				mn.Unlock()
 				s2.End()
 				s3.Add(10)
 				s3.Add(20)
