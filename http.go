@@ -148,12 +148,9 @@ func (s *HTTPSender) SendWithTimeout(req *http.Request, timeout time.Duration) (
 
 		// Send request
 		s.l.Debugf("astikit: sending %s", nr)
-		var errDo error
-		if resp, errDo = s.client.Do(req); errDo != nil {
-			// If error is temporary, retry
-			if netError, ok := errDo.(net.Error); ok && netError.Temporary() {
-				err = errDo
-			} else {
+		if resp, err = s.client.Do(req); err != nil {
+			// Retry if error is temporary, stop here otherwise
+			if netError, ok := err.(net.Error); !ok || !netError.Temporary() {
 				err = fmt.Errorf("astikit: sending %s failed: %w", nr, err)
 				return
 			}
