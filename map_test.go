@@ -31,4 +31,20 @@ func TestBiMap(t *testing.T) {
 	if e, g := 1, v.(int); e != g {
 		t.Errorf("expected %d, got %d", e, g)
 	}
+	testPanic(t, false, func() { m.MustGet(0) })
+	testPanic(t, true, func() { m.MustGet(2) })
+	testPanic(t, false, func() { m.MustGetInverse(0) })
+	testPanic(t, true, func() { m.MustGetInverse(2) })
+}
+
+func testPanic(t *testing.T, shouldPanic bool, fn func()) {
+	defer func() {
+		err := recover()
+		if shouldPanic && err == nil {
+			t.Error("should have panicked")
+		} else if !shouldPanic && err != nil {
+			t.Error("should not have panicked")
+		}
+	}()
+	fn()
 }
