@@ -3,6 +3,8 @@ package astikit
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -60,8 +62,7 @@ func TestHTTPSender(t *testing.T) {
 		}),
 		RetryMax: 3,
 	})
-	_, err := s.Send(&http.Request{})
-	if err == nil {
+	if _, err := s.Send(&http.Request{}); err == nil {
 		t.Error("expected error, got nil")
 	}
 	if e := 4; c != e {
@@ -86,8 +87,7 @@ func TestHTTPSender(t *testing.T) {
 		}),
 		RetryMax: 3,
 	})
-	_, err = s.Send(&http.Request{})
-	if err != nil {
+	if _, err := s.Send(&http.Request{}); err != nil {
 		t.Errorf("expected no error, got %+v", err)
 	}
 	if e := 3; c != e {
@@ -103,9 +103,65 @@ func TestHTTPSender(t *testing.T) {
 			return
 		}),
 	})
-	_, err = s.SendWithTimeout(&http.Request{}, time.Millisecond)
-	if err == nil {
+	if _, err := s.SendWithTimeout(&http.Request{}, time.Millisecond); err == nil {
 		t.Error("expected error, got nil")
+	}
+
+	// JSON
+	const (
+		ebe = "error"
+		ebi = "body-in"
+		ebo = "body-out"
+		eu  = "https://domain.com/url"
+	)
+	var gu, gbi string
+	s = NewHTTPSender(HTTPSenderOptions{
+		Client: mockedHTTPClient(func(req *http.Request) (resp *http.Response, err error) {
+			switch req.Method {
+			case http.MethodHead:
+				gu = req.URL.String()
+				resp = &http.Response{Body: ioutil.NopCloser(&bytes.Buffer{}), StatusCode: http.StatusBadRequest}
+			case http.MethodPost:
+				json.NewDecoder(req.Body).Decode(&gbi)
+				resp = &http.Response{Body: ioutil.NopCloser(bytes.NewBuffer([]byte("\"" + ebe + "\""))), StatusCode: http.StatusBadRequest}
+			case http.MethodGet:
+				resp = &http.Response{Body: ioutil.NopCloser(bytes.NewBuffer([]byte("\"" + ebo + "\""))), StatusCode: http.StatusOK}
+			}
+			return
+		}),
+	})
+	if err := s.SendJSON(HTTPSendJSONOptions{
+		Method: http.MethodHead,
+		URL:    eu,
+	}); err == nil {
+		t.Error("expected error, got nil")
+	}
+	if gu != eu {
+		t.Errorf("expected %s, got %s", eu, gu)
+	}
+	var gbe string
+	if err := s.SendJSON(HTTPSendJSONOptions{
+		BodyError: &gbe,
+		BodyIn:    ebi,
+		Method:    http.MethodPost,
+	}); !errors.Is(err, ErrHTTPSenderUnmarshaledError) {
+		t.Errorf("expected ErrHTTPSenderUnmarshaledError, got %s", err)
+	}
+	if gbe != ebe {
+		t.Errorf("expected %s, got %s", ebe, gbe)
+	}
+	if gbi != ebi {
+		t.Errorf("expected %s, got %s", ebi, gbi)
+	}
+	var gbo string
+	if err := s.SendJSON(HTTPSendJSONOptions{
+		BodyOut: &gbo,
+		Method:  http.MethodGet,
+	}); err != nil {
+		t.Errorf("expected no error, got %s", err)
+	}
+	if gbo != ebo {
+		t.Errorf("expected %s, go %s", ebo, gbo)
 	}
 }
 

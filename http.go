@@ -1,7 +1,10 @@
 package astikit
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -13,6 +16,8 @@ import (
 	"sync"
 	"time"
 )
+
+var ErrHTTPSenderUnmarshaledError = errors.New("astikit: unmarshaled error")
 
 // ServeHTTPOptions represents serve options
 type ServeHTTPOptions struct {
@@ -176,6 +181,68 @@ func (s *HTTPSender) SendWithTimeout(req *http.Request, timeout time.Duration) (
 
 	// Max retries limit reached
 	err = fmt.Errorf("astikit: sending %s failed after %d tries: %w", name, tries, err)
+	return
+}
+
+// HTTPSendJSONOptions represents SendJSON options
+type HTTPSendJSONOptions struct {
+	BodyError interface{}
+	BodyIn    interface{}
+	BodyOut   interface{}
+	Method    string
+	URL       string
+}
+
+// SendJSON sends a new JSON HTTP request
+func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
+	// Marshal body in
+	var bi io.Reader
+	if o.BodyIn != nil {
+		bb := &bytes.Buffer{}
+		if err = json.NewEncoder(bb).Encode(o.BodyIn); err != nil {
+			err = fmt.Errorf("astikit: marshaling body in failed: %w", err)
+			return
+		}
+		bi = bb
+	}
+
+	// Create request
+	var req *http.Request
+	if req, err = http.NewRequest(o.Method, o.URL, bi); err != nil {
+		err = fmt.Errorf("astikit: creating request failed: %w", err)
+		return
+	}
+
+	// Send request
+	var resp *http.Response
+	if resp, err = s.Send(req); err != nil {
+		err = fmt.Errorf("astikit: sending request failed: %w", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Process status code
+	if code := resp.StatusCode; code < 200 || code > 299 {
+		// Try unmarshaling error
+		if o.BodyError != nil {
+			if err2 := json.NewDecoder(resp.Body).Decode(o.BodyError); err2 == nil {
+				err = ErrHTTPSenderUnmarshaledError
+				return
+			}
+		}
+
+		// Default error
+		err = fmt.Errorf("astikit: invalid status code %d", code)
+		return
+	}
+
+	// Unmarshal body out
+	if o.BodyOut != nil {
+		if err = json.NewDecoder(resp.Body).Decode(o.BodyOut); err != nil {
+			err = fmt.Errorf("astikit: unmarshaling failed: %w", err)
+			return
+		}
+	}
 	return
 }
 
