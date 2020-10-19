@@ -189,6 +189,7 @@ type HTTPSendJSONOptions struct {
 	BodyError interface{}
 	BodyIn    interface{}
 	BodyOut   interface{}
+	Headers   map[string]string
 	Method    string
 	URL       string
 }
@@ -211,6 +212,11 @@ func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
 	if req, err = http.NewRequest(o.Method, o.URL, bi); err != nil {
 		err = fmt.Errorf("astikit: creating request failed: %w", err)
 		return
+	}
+
+	// Add headers
+	for k, v := range o.Headers {
+		req.Header.Set(k, v)
 	}
 
 	// Send request

@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -108,17 +110,25 @@ func TestHTTPSender(t *testing.T) {
 	}
 
 	// JSON
-	const (
+	var (
 		ebe = "error"
 		ebi = "body-in"
 		ebo = "body-out"
-		eu  = "https://domain.com/url"
+		eh  = map[string]string{
+			"K1": "v1",
+			"K2": "v2",
+		}
+		eu = "https://domain.com/url"
 	)
 	var gu, gbi string
+	gh := make(map[string]string)
 	s = NewHTTPSender(HTTPSenderOptions{
 		Client: mockedHTTPClient(func(req *http.Request) (resp *http.Response, err error) {
 			switch req.Method {
 			case http.MethodHead:
+				for k, v := range req.Header {
+					gh[k] = strings.Join(v, ",")
+				}
 				gu = req.URL.String()
 				resp = &http.Response{Body: ioutil.NopCloser(&bytes.Buffer{}), StatusCode: http.StatusBadRequest}
 			case http.MethodPost:
@@ -131,10 +141,14 @@ func TestHTTPSender(t *testing.T) {
 		}),
 	})
 	if err := s.SendJSON(HTTPSendJSONOptions{
-		Method: http.MethodHead,
-		URL:    eu,
+		Headers: eh,
+		Method:  http.MethodHead,
+		URL:     eu,
 	}); err == nil {
 		t.Error("expected error, got nil")
+	}
+	if !reflect.DeepEqual(eh, gh) {
+		t.Errorf("expected %+v, got %+v", eh, gh)
 	}
 	if gu != eu {
 		t.Errorf("expected %s, got %s", eu, gu)
