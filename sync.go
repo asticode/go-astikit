@@ -13,7 +13,7 @@ import (
 
 // Stat names
 const (
-	StatNameWaitRatio = "astikit.wait.ratio"
+	StatNameWorkRatio = "astikit.work.ratio"
 )
 
 // Chan constants
@@ -31,15 +31,15 @@ const (
 // in which adding new funcs is blocking
 // Check out ChanOptions for detailed options
 type Chan struct {
-	cancel   context.CancelFunc
-	c        *sync.Cond
-	ctx      context.Context
-	fs       []func()
-	mc       *sync.Mutex // Locks ctx
-	mf       *sync.Mutex // Locks fs
-	o        ChanOptions
-	running  uint32
-	statWait *DurationPercentageStat
+	cancel        context.CancelFunc
+	c             *sync.Cond
+	ctx           context.Context
+	fs            []func()
+	mc            *sync.Mutex // Locks ctx
+	mf            *sync.Mutex // Locks fs
+	o             ChanOptions
+	running       uint32
+	statWorkRatio *DurationPercentageStat
 }
 
 // ChanOptions are Chan options
@@ -114,13 +114,7 @@ func (c *Chan) Start(ctx context.Context) {
 
 			// No funcs in buffer
 			if l == 0 {
-				if c.statWait != nil {
-					c.statWait.Begin()
-				}
 				c.c.Wait()
-				if c.statWait != nil {
-					c.statWait.End()
-				}
 				c.c.L.Unlock()
 				continue
 			}
@@ -132,7 +126,13 @@ func (c *Chan) Start(ctx context.Context) {
 			c.mf.Unlock()
 
 			// Execute func
+			if c.statWorkRatio != nil {
+				c.statWorkRatio.Begin()
+			}
 			fn()
+			if c.statWorkRatio != nil {
+				c.statWorkRatio.End()
+			}
 
 			// Remove first func
 			c.mf.Lock()
@@ -205,17 +205,17 @@ func (c *Chan) Reset() {
 // AddStats adds stats to the stater
 func (c *Chan) AddStats(s *Stater) {
 	// Create stats
-	if c.statWait == nil {
-		c.statWait = NewDurationPercentageStat()
+	if c.statWorkRatio == nil {
+		c.statWorkRatio = NewDurationPercentageStat()
 	}
 
-	// Add wait stat
+	// Add work stat
 	s.AddStat(StatMetadata{
-		Description: "Percentage of time spent listening and waiting for new object",
-		Label:       "Wait ratio",
-		Name:        StatNameWaitRatio,
+		Description: "Percentage of time doing work",
+		Label:       "Work ratio",
+		Name:        StatNameWorkRatio,
 		Unit:        "%",
-	}, c.statWait)
+	}, c.statWorkRatio)
 }
 
 // BufferPool represents a *bytes.Buffer pool
