@@ -51,8 +51,13 @@ func TestTranslator(t *testing.T) {
 			language: "en",
 		},
 		{
-			expected: "en.4",
+			expected: "4",
 			key:      "4",
+			language: "en",
+		},
+		{
+			expected: "en.5",
+			key:      "5",
 			language: "en",
 		},
 	} {
