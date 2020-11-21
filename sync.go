@@ -202,20 +202,22 @@ func (c *Chan) Reset() {
 	c.fs = []func(){}
 }
 
-// AddStats adds stats to the stater
-func (c *Chan) AddStats(s *Stater) {
-	// Create stats
+// Stats returns the chan stats
+func (c *Chan) Stats() []StatOptions {
 	if c.statWorkRatio == nil {
 		c.statWorkRatio = NewDurationPercentageStat()
 	}
-
-	// Add work stat
-	s.AddStat(StatMetadata{
-		Description: "Percentage of time doing work",
-		Label:       "Work ratio",
-		Name:        StatNameWorkRatio,
-		Unit:        "%",
-	}, c.statWorkRatio)
+	return []StatOptions{
+		{
+			Handler: c.statWorkRatio,
+			Metadata: &StatMetadata{
+				Description: "Percentage of time doing work",
+				Label:       "Work ratio",
+				Name:        StatNameWorkRatio,
+				Unit:        "%",
+			},
+		},
+	}
 }
 
 // BufferPool represents a *bytes.Buffer pool

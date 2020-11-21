@@ -23,36 +23,39 @@ func TestStater(t *testing.T) {
 	}
 
 	// Add stats
-	s1 := NewCounterRateStat()
-	m1 := StatMetadata{Description: "1"}
-	s2 := NewDurationPercentageStat()
-	m2 := StatMetadata{Description: "2"}
-	s3 := NewCounterAvgStat()
-	m3 := StatMetadata{Description: "3"}
+	h1 := NewCounterRateStat()
+	m1 := &StatMetadata{Description: "1"}
+	o1 := StatOptions{Handler: h1, Metadata: m1}
+	h2 := NewDurationPercentageStat()
+	m2 := &StatMetadata{Description: "2"}
+	o2 := StatOptions{Handler: h2, Metadata: m2}
+	h3 := NewCounterAvgStat()
+	m3 := &StatMetadata{Description: "3"}
+	o3 := StatOptions{Handler: h3, Metadata: m3}
 
 	// First time stats are computed, it actually acts as if stats were being updated
 	// Second time stats are computed, results are stored and context is cancelled
-	var ss []Stat
+	var ss []StatValue
 	ctx, cancel := context.WithCancel(context.Background())
 	s := NewStater(StaterOptions{
-		HandleFunc: func(stats []Stat) {
+		HandleFunc: func(stats []StatValue) {
 			mc.Lock()
 			defer mc.Unlock()
 			c++
 			switch c {
 			case 1:
-				s1.Add(10)
+				h1.Add(10)
 				mn.Lock()
 				nowV = time.Unix(0, 0)
 				mn.Unlock()
-				s2.Begin()
+				h2.Begin()
 				mn.Lock()
 				nowV = time.Unix(5, 0)
 				mn.Unlock()
-				s2.End()
-				s3.Add(10)
-				s3.Add(20)
-				s3.Add(30)
+				h2.End()
+				h3.Add(10)
+				h3.Add(20)
+				h3.Add(30)
 			default:
 				ss = stats
 				cancel()
@@ -60,15 +63,14 @@ func TestStater(t *testing.T) {
 		},
 		Period: time.Millisecond,
 	})
-	s.AddStat(m1, s1)
-	s.AddStat(m2, s2)
-	s.AddStat(m3, s3)
-	if e, g := []StatMetadata{m1, m2, m3}, s.StatsMetadata(); !reflect.DeepEqual(g, e) {
-		t.Errorf("expected %+v, got %+v", e, g)
+	s.AddStats(o1, o2, o3)
+	for _, o := range []StatOptions{o1, o2, o3} {
+		o.Handler.Start()
+		defer o.Handler.Stop()
 	}
-	defer s.Stop()
 	s.Start(ctx)
-	if e := []Stat{{StatMetadata: m1, Value: 2.0}, {StatMetadata: m2, Value: 100.0}, {StatMetadata: m3, Value: 20.0}}; !reflect.DeepEqual(e, ss) {
+	defer s.Stop()
+	if e := []StatValue{{StatMetadata: m1, Value: 2.0}, {StatMetadata: m2, Value: 100.0}, {StatMetadata: m3, Value: 20.0}}; !reflect.DeepEqual(e, ss) {
 		t.Errorf("expected %+v, got %+v", e, ss)
 	}
 }
