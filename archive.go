@@ -15,7 +15,7 @@ import (
 func zipInternalPath(p string) (external, internal string) {
 	if items := strings.Split(p, ".zip"); len(items) > 1 {
 		external = items[0] + ".zip"
-		internal = strings.TrimPrefix(strings.Join(items[1:], ".zip"), string(os.PathSeparator))
+		internal = strings.TrimPrefix(strings.Join(items[1:], ".zip"), "/")
 		return
 	}
 	external = p
@@ -63,7 +63,7 @@ func Zip(ctx context.Context, dst, src string) (err error) {
 		// Set header info
 		h.Name = filepath.Join(internalPath, strings.TrimPrefix(path, src))
 		if info.IsDir() {
-			h.Name += string(os.PathSeparator)
+			h.Name += "/"
 		} else {
 			h.Method = zip.Deflate
 		}
