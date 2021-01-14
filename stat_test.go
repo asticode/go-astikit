@@ -70,7 +70,20 @@ func TestStater(t *testing.T) {
 	}
 	s.Start(ctx)
 	defer s.Stop()
-	if e := []StatValue{{StatMetadata: m1, Value: 2.0}, {StatMetadata: m2, Value: 100.0}, {StatMetadata: m3, Value: 20.0}}; !reflect.DeepEqual(e, ss) {
-		t.Errorf("expected %+v, got %+v", e, ss)
+	for _, e := range []StatValue{
+		{StatMetadata: m1, Value: 2.0},
+		{StatMetadata: m2, Value: 100.0},
+		{StatMetadata: m3, Value: 20.0},
+	} {
+		found := false
+		for _, s := range ss {
+			if reflect.DeepEqual(s, e) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected %+v, not found", e)
+		}
 	}
 }
