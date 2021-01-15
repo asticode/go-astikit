@@ -621,3 +621,12 @@ func HTTPMiddlewareHeaders(vs map[string]string) HTTPMiddleware {
 		})
 	}
 }
+
+// HTTPMiddlewareCORSHeaders adds CORS headers to an HTTP handler
+func HTTPMiddlewareCORSHeaders() HTTPMiddleware {
+	return HTTPMiddlewareHeaders(map[string]string{
+		"Access-Control-Allow-Headers": "*",
+		"Access-Control-Allow-Methods": "*",
+		"Access-Control-Allow-Origin":  "*",
+	})
+}
