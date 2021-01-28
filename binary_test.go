@@ -69,7 +69,7 @@ func TestBitsWriter(t *testing.T) {
 		t.Error("expected error")
 	}
 	bw.Reset()
-	err = w.WriteN(uint8(8), 3)
+	err = w.WriteN(uint8(4), 3)
 	if err != nil {
 		t.Errorf("expected no error, got %+v", err)
 	}
@@ -77,12 +77,12 @@ func TestBitsWriter(t *testing.T) {
 	if err != nil {
 		t.Errorf("expected no error, got %+v", err)
 	}
-	if e, g := []byte{136, 0}, bw.Bytes(); !reflect.DeepEqual(e, g) {
+	if e, g := []byte{144, 0}, bw.Bytes(); !reflect.DeepEqual(e, g) {
 		t.Errorf("expected %+v, got %+v", e, g)
 	}
 }
 
-func BenchmarkBitsWriter(b *testing.B) {
+func BenchmarkBitsWriter_Write(b *testing.B) {
 	benchmarks := []struct {
 		input interface{}
 	}{
@@ -106,6 +106,40 @@ func BenchmarkBitsWriter(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				bw.Reset()
 				w.Write(bm.input)
+			}
+		})
+	}
+}
+
+func BenchmarkBitsWriter_WriteN(b *testing.B) {
+	type benchData struct {
+		i interface{}
+		n int
+	}
+	benchmarks := []benchData{}
+	for i := 1; i <= 8; i++ {
+		benchmarks = append(benchmarks, benchData{uint8(0xff), i})
+	}
+	for i := 1; i <= 16; i++ {
+		benchmarks = append(benchmarks, benchData{uint16(0xffff), i})
+	}
+	for i := 1; i <= 32; i++ {
+		benchmarks = append(benchmarks, benchData{uint32(0xffffffff), i})
+	}
+	for i := 1; i <= 64; i++ {
+		benchmarks = append(benchmarks, benchData{uint64(0xffffffffffffffff), i})
+	}
+
+	bw := &bytes.Buffer{}
+	bw.Grow(1024)
+	w := NewBitsWriter(BitsWriterOptions{Writer: bw})
+
+	for _, bm := range benchmarks {
+		b.Run(fmt.Sprintf("%#v/%d", bm.i, bm.n), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				bw.Reset()
+				w.WriteN(bm.i, bm.n)
 			}
 		})
 	}

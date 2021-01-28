@@ -3,7 +3,6 @@ package astikit
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 )
 
@@ -142,12 +141,27 @@ func (w *BitsWriter) writeBit(bit byte) error {
 
 // WriteN writes the input into n bits
 func (w *BitsWriter) WriteN(i interface{}, n int) error {
-	switch i.(type) {
-	case uint8, uint16, uint32, uint64:
-		return w.Write(fmt.Sprintf(fmt.Sprintf("%%.%db", n), i))
+	var toWrite uint64
+	switch a := i.(type) {
+	case uint8:
+		toWrite = uint64(a)
+	case uint16:
+		toWrite = uint64(a)
+	case uint32:
+		toWrite = uint64(a)
+	case uint64:
+		toWrite = a
 	default:
 		return errors.New("astikit: invalid type")
 	}
+
+	for i := n - 1; i >= 0; i-- {
+		err := w.writeBit(byte(toWrite>>i) & 0x1)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 var byteHamming84Tab = [256]uint8{
