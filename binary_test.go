@@ -94,7 +94,6 @@ func BenchmarkBitsWriter(b *testing.B) {
 		{uint16(5)},
 		{uint32(6)},
 		{uint64(7)},
-		{1},
 	}
 
 	bw := &bytes.Buffer{}

@@ -15,8 +15,8 @@ type BitsWriter struct {
 	bo       binary.ByteOrder
 	cache    byte
 	cacheLen byte
-	//rs []rune
-	w io.Writer
+	bsCache  []byte
+	w        io.Writer
 }
 
 // BitsWriterOptions represents BitsWriter options
@@ -28,8 +28,9 @@ type BitsWriterOptions struct {
 // NewBitsWriter creates a new BitsWriter
 func NewBitsWriter(o BitsWriterOptions) (w *BitsWriter) {
 	w = &BitsWriter{
-		bo: o.ByteOrder,
-		w:  o.Writer,
+		bo:      o.ByteOrder,
+		w:       o.Writer,
+		bsCache: make([]byte, 1),
 	}
 	if w.bo == nil {
 		w.bo = binary.BigEndian
@@ -110,12 +111,13 @@ func (w *BitsWriter) writeFullInt(in uint64, len int) error {
 
 func (w *BitsWriter) writeFullByte(b byte) error {
 	if w.cacheLen == 0 {
-		_, err := w.w.Write([]byte{b})
+		w.bsCache[0] = b
+		_, err := w.w.Write(w.bsCache)
 		return err
 	}
 
-	toWrite := w.cache | (b >> w.cacheLen)
-	if _, err := w.w.Write([]byte{toWrite}); err != nil {
+	w.bsCache[0] = w.cache | (b >> w.cacheLen)
+	if _, err := w.w.Write(w.bsCache); err != nil {
 		return err
 	}
 
@@ -127,7 +129,8 @@ func (w *BitsWriter) writeBit(bit byte) error {
 	w.cache = w.cache | (bit)<<(7-w.cacheLen)
 	w.cacheLen++
 	if w.cacheLen == 8 {
-		_, err := w.w.Write([]byte{w.cache})
+		w.bsCache[0] = w.cache
+		_, err := w.w.Write(w.bsCache)
 		if err != nil {
 			return err
 		}
