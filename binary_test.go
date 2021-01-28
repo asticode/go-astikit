@@ -2,6 +2,7 @@ package astikit
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -78,6 +79,36 @@ func TestBitsWriter(t *testing.T) {
 	}
 	if e, g := []byte{136, 0}, bw.Bytes(); !reflect.DeepEqual(e, g) {
 		t.Errorf("expected %+v, got %+v", e, g)
+	}
+}
+
+func BenchmarkBitsWriter(b *testing.B) {
+	benchmarks := []struct {
+		input interface{}
+	}{
+		{"000000"},
+		{false},
+		{true},
+		{[]byte{2, 3}},
+		{uint8(4)},
+		{uint16(5)},
+		{uint32(6)},
+		{uint64(7)},
+		{1},
+	}
+
+	bw := &bytes.Buffer{}
+	bw.Grow(1024)
+	w := NewBitsWriter(BitsWriterOptions{Writer: bw})
+
+	for _, bm := range benchmarks {
+		b.Run(fmt.Sprintf("%#v", bm.input), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				bw.Reset()
+				w.Write(bm.input)
+			}
+		})
 	}
 }
 
