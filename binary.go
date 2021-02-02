@@ -16,6 +16,9 @@ type BitsWriter struct {
 	cacheLen byte
 	bsCache  []byte
 	w        io.Writer
+
+	// first error occurred using Try* funcs
+	firstTryErr error
 }
 
 // BitsWriterOptions represents BitsWriter options
@@ -162,6 +165,28 @@ func (w *BitsWriter) WriteN(i interface{}, n int) error {
 		}
 	}
 	return nil
+}
+
+// TryErr returns first Try* func error and clears it
+// Try* funcs allow to do simple chaining while serializing structures
+func (w *BitsWriter) TryErr() (err error) {
+	err = w.firstTryErr
+	w.firstTryErr = nil
+	return
+}
+
+// TryWrite tries to write value if there's no previous Try* error occurred and saves error of the write if any
+func (w *BitsWriter) TryWrite(i interface{}) {
+	if w.firstTryErr == nil {
+		w.firstTryErr = w.Write(i)
+	}
+}
+
+// TryWriteN tries to write N bits of value if there's no previous Try* error occurred and saves error of the write if any
+func (w *BitsWriter) TryWriteN(i interface{}, n int) {
+	if w.firstTryErr == nil {
+		w.firstTryErr = w.WriteN(i, n)
+	}
 }
 
 var byteHamming84Tab = [256]uint8{

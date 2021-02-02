@@ -3,6 +3,7 @@ package astikit
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"reflect"
 	"testing"
 )
@@ -79,6 +80,43 @@ func TestBitsWriter(t *testing.T) {
 	}
 	if e, g := []byte{144, 0}, bw.Bytes(); !reflect.DeepEqual(e, g) {
 		t.Errorf("expected %+v, got %+v", e, g)
+	}
+}
+
+// testLimitedWriter is an implementation of io.Writer with max write size limit to test error handling
+type testLimitedWriter struct {
+	BytesLimit int
+}
+
+func (t *testLimitedWriter) Write(p []byte) (n int, err error) {
+	t.BytesLimit -= len(p)
+	if t.BytesLimit >= 0 {
+		return len(p), nil
+	}
+	return len(p) + t.BytesLimit, io.EOF
+}
+
+func TestBitsWriter_TryFuncs(t *testing.T) {
+	wr := &testLimitedWriter{BytesLimit: 1}
+	w := NewBitsWriter(BitsWriterOptions{Writer: wr})
+
+	w.TryWrite(uint8(0))
+	if err := w.TryErr(); err != nil {
+		t.Errorf("expected no error, got %+v", err)
+	}
+	w.TryWrite(uint8(1))
+	if err := w.TryErr(); err == nil {
+		t.Errorf("expected error, got %+v", err)
+	}
+
+	wr.BytesLimit = 1
+	w.TryWrite(uint8(2))
+	if err := w.TryErr(); err != nil {
+		t.Errorf("expected no error, got %+v", err)
+	}
+	w.TryWrite(uint8(3))
+	if err := w.TryErr(); err == nil {
+		t.Errorf("expected error, got %+v", err)
 	}
 }
 
