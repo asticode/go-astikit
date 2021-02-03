@@ -16,9 +16,6 @@ type BitsWriter struct {
 	cacheLen byte
 	bsCache  []byte
 	w        io.Writer
-
-	// first error occurred using Try* funcs
-	firstTryErr error
 }
 
 // BitsWriterOptions represents BitsWriter options
@@ -167,26 +164,36 @@ func (w *BitsWriter) WriteN(i interface{}, n int) error {
 	return nil
 }
 
-// TryErr returns first Try* func error and clears it
-// Try* funcs allow to do simple chaining while serializing structures
-func (w *BitsWriter) TryErr() (err error) {
-	err = w.firstTryErr
-	w.firstTryErr = nil
-	return
+// BitsWriterBatch allows to chain multiple Write* calls and check for error only once
+// For more info see https://github.com/asticode/go-astikit/pull/6
+type BitsWriterBatch struct {
+	err error
+	w   *BitsWriter
 }
 
-// TryWrite tries to write value if there's no previous Try* error occurred and saves error of the write if any
-func (w *BitsWriter) TryWrite(i interface{}) {
-	if w.firstTryErr == nil {
-		w.firstTryErr = w.Write(i)
+func NewBitsWriterBatch(w *BitsWriter) BitsWriterBatch {
+	return BitsWriterBatch{
+		w: w,
 	}
 }
 
-// TryWriteN tries to write N bits of value if there's no previous Try* error occurred and saves error of the write if any
-func (w *BitsWriter) TryWriteN(i interface{}, n int) {
-	if w.firstTryErr == nil {
-		w.firstTryErr = w.WriteN(i, n)
+// Will write argument if there was no write errors before the call
+func (b *BitsWriterBatch) Write(i interface{}) {
+	if b.err == nil {
+		b.err = b.w.Write(i)
 	}
+}
+
+// Will write n bits of argument if there was no write errors before the call
+func (b *BitsWriterBatch) WriteN(i interface{}, n int) {
+	if b.err == nil {
+		b.err = b.w.WriteN(i, n)
+	}
+}
+
+// Returns first write error
+func (b *BitsWriterBatch) Err() error {
+	return b.err
 }
 
 var byteHamming84Tab = [256]uint8{

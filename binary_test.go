@@ -96,26 +96,23 @@ func (t *testLimitedWriter) Write(p []byte) (n int, err error) {
 	return len(p) + t.BytesLimit, io.EOF
 }
 
-func TestBitsWriter_TryFuncs(t *testing.T) {
+func TestNewBitsWriterBatch(t *testing.T) {
 	wr := &testLimitedWriter{BytesLimit: 1}
 	w := NewBitsWriter(BitsWriterOptions{Writer: wr})
+	b := NewBitsWriterBatch(w)
 
-	w.TryWrite(uint8(0))
-	if err := w.TryErr(); err != nil {
+	b.Write(uint8(0))
+	if err := b.Err(); err != nil {
 		t.Errorf("expected no error, got %+v", err)
 	}
-	w.TryWrite(uint8(1))
-	if err := w.TryErr(); err == nil {
+	b.Write(uint8(1))
+	if err := b.Err(); err == nil {
 		t.Errorf("expected error, got %+v", err)
 	}
 
-	wr.BytesLimit = 1
-	w.TryWrite(uint8(2))
-	if err := w.TryErr(); err != nil {
-		t.Errorf("expected no error, got %+v", err)
-	}
-	w.TryWrite(uint8(3))
-	if err := w.TryErr(); err == nil {
+	// let's check if the error is persisted
+	b.Write(uint8(2))
+	if err := b.Err(); err == nil {
 		t.Errorf("expected error, got %+v", err)
 	}
 }
