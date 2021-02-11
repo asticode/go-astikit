@@ -10,7 +10,14 @@ import (
 func TestBitsWriter(t *testing.T) {
 	// TODO Need to test LittleEndian
 	bw := &bytes.Buffer{}
-	w := NewBitsWriter(BitsWriterOptions{Writer: bw})
+	cbBuf := bytes.Buffer{}
+	w := NewBitsWriter(BitsWriterOptions{
+		Writer: bw,
+		WriteCallback: func(i []byte) {
+			cbBuf.Write(i)
+		},
+	})
+
 	err := w.Write("000000")
 	if err != nil {
 		t.Errorf("expected no error, got %+v", err)
@@ -64,10 +71,14 @@ func TestBitsWriter(t *testing.T) {
 	if e, g := []byte{1, 2, 3, 4, 0, 5, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 7}, bw.Bytes(); !reflect.DeepEqual(e, g) {
 		t.Errorf("expected %+v, got %+v", e, g)
 	}
+	if e, g := []byte{1, 2, 3, 4, 0, 5, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 7}, cbBuf.Bytes(); !reflect.DeepEqual(e, g) {
+		t.Errorf("callback buffer: expected %+v, got %+v", e, g)
+	}
 	err = w.Write(1)
 	if err == nil {
 		t.Error("expected error")
 	}
+
 	bw.Reset()
 	err = w.WriteN(uint8(4), 3)
 	if err != nil {
