@@ -185,6 +185,38 @@ func (w *BitsWriter) WriteN(i interface{}, n int) error {
 	return nil
 }
 
+// BitsWriterBatch allows to chain multiple Write* calls and check for error only once
+// For more info see https://github.com/asticode/go-astikit/pull/6
+type BitsWriterBatch struct {
+	err error
+	w   *BitsWriter
+}
+
+func NewBitsWriterBatch(w *BitsWriter) BitsWriterBatch {
+	return BitsWriterBatch{
+		w: w,
+	}
+}
+
+// Will write argument if there was no write errors before the call
+func (b *BitsWriterBatch) Write(i interface{}) {
+	if b.err == nil {
+		b.err = b.w.Write(i)
+	}
+}
+
+// Will write n bits of argument if there was no write errors before the call
+func (b *BitsWriterBatch) WriteN(i interface{}, n int) {
+	if b.err == nil {
+		b.err = b.w.WriteN(i, n)
+	}
+}
+
+// Returns first write error
+func (b *BitsWriterBatch) Err() error {
+	return b.err
+}
+
 var byteHamming84Tab = [256]uint8{
 	0x01, 0xff, 0xff, 0x08, 0xff, 0x0c, 0x04, 0xff, 0xff, 0x08, 0x08, 0x08, 0x06, 0xff, 0xff, 0x08,
 	0xff, 0x0a, 0x02, 0xff, 0x06, 0xff, 0xff, 0x0f, 0x06, 0xff, 0xff, 0x08, 0x06, 0x06, 0x06, 0xff,
