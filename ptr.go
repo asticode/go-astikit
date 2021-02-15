@@ -42,6 +42,11 @@ func StrPtr(i string) *string {
 	return &i
 }
 
+// TimePtr transforms a time.Time into a *time.Time
+func TimePtr(i time.Time) *time.Time {
+	return &i
+}
+
 // UInt8Ptr transforms a uint8 into a *uint8
 func UInt8Ptr(i uint8) *uint8 {
 	return &i
