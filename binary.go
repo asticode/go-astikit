@@ -16,25 +16,35 @@ type BitsWriter struct {
 	cacheLen byte
 	bsCache  []byte
 	w        io.Writer
+	writeCb  BitsWriterWriteCallback
 }
+
+type BitsWriterWriteCallback func([]byte)
 
 // BitsWriterOptions represents BitsWriter options
 type BitsWriterOptions struct {
 	ByteOrder binary.ByteOrder
-	Writer    io.Writer
+	// WriteCallback is called every time when full byte is written
+	WriteCallback BitsWriterWriteCallback
+	Writer        io.Writer
 }
 
 // NewBitsWriter creates a new BitsWriter
 func NewBitsWriter(o BitsWriterOptions) (w *BitsWriter) {
 	w = &BitsWriter{
 		bo:      o.ByteOrder,
-		w:       o.Writer,
 		bsCache: make([]byte, 1),
+		w:       o.Writer,
+		writeCb: o.WriteCallback,
 	}
 	if w.bo == nil {
 		w.bo = binary.BigEndian
 	}
 	return
+}
+
+func (w *BitsWriter) SetWriteCallback(cb BitsWriterWriteCallback) {
+	w.writeCb = cb
 }
 
 // Write writes bits into the writer. Bits are only written when there are
@@ -108,20 +118,26 @@ func (w *BitsWriter) writeFullInt(in uint64, len int) error {
 	return nil
 }
 
-func (w *BitsWriter) writeFullByte(b byte) error {
-	if w.cacheLen == 0 {
-		w.bsCache[0] = b
-		_, err := w.w.Write(w.bsCache)
-		return err
-	}
-
-	w.bsCache[0] = w.cache | (b >> w.cacheLen)
+func (w *BitsWriter) flushBsCache() error {
 	if _, err := w.w.Write(w.bsCache); err != nil {
 		return err
 	}
 
-	w.cache = b << (8 - w.cacheLen)
+	if w.writeCb != nil {
+		w.writeCb(w.bsCache)
+	}
+
 	return nil
+}
+
+func (w *BitsWriter) writeFullByte(b byte) error {
+	if w.cacheLen == 0 {
+		w.bsCache[0] = b
+	} else {
+		w.bsCache[0] = w.cache | (b >> w.cacheLen)
+		w.cache = b << (8 - w.cacheLen)
+	}
+	return w.flushBsCache()
 }
 
 func (w *BitsWriter) writeBit(bit byte) error {
@@ -129,10 +145,10 @@ func (w *BitsWriter) writeBit(bit byte) error {
 	w.cacheLen++
 	if w.cacheLen == 8 {
 		w.bsCache[0] = w.cache
-		_, err := w.w.Write(w.bsCache)
-		if err != nil {
+		if err := w.flushBsCache(); err != nil {
 			return err
 		}
+
 		w.cacheLen = 0
 		w.cache = 0
 	}
