@@ -98,6 +98,28 @@ func (w *BitsWriter) Write(i interface{}) error {
 	return nil
 }
 
+// Writes exactly n bytes from bs
+// Writes first n bytes of bs if len(bs) > n
+// Pads with padByte at the end if len(bs) < n
+func (w *BitsWriter) WriteBytesN(bs []byte, n int, padByte uint8) error {
+	if len(bs) >= n {
+		return w.Write(bs[:n])
+	}
+
+	if err := w.Write(bs); err != nil {
+		return err
+	}
+
+	// no bytes.Repeat here to avoid allocation
+	for i := 0; i < n-len(bs); i++ {
+		if err := w.Write(padByte); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (w *BitsWriter) writeFullInt(in uint64, len int) error {
 	if w.bo == binary.BigEndian {
 		for i := len - 1; i >= 0; i-- {
@@ -193,17 +215,24 @@ func NewBitsWriterBatch(w *BitsWriter) BitsWriterBatch {
 	}
 }
 
-// Will write argument if there was no write errors before the call
+// Calls BitsWriter.Write if there was no write error before
 func (b *BitsWriterBatch) Write(i interface{}) {
 	if b.err == nil {
 		b.err = b.w.Write(i)
 	}
 }
 
-// Will write n bits of argument if there was no write errors before the call
+// Calls BitsWriter.WriteN if there was no write error before
 func (b *BitsWriterBatch) WriteN(i interface{}, n int) {
 	if b.err == nil {
 		b.err = b.w.WriteN(i, n)
+	}
+}
+
+// Calls BitsWriter.WriteBytesN if there was no write error before
+func (b *BitsWriterBatch) WriteBytesN(bs []byte, n int, padByte uint8) {
+	if b.err == nil {
+		b.err = b.w.WriteBytesN(bs, n, padByte)
 	}
 }
 
