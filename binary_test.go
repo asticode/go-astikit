@@ -83,6 +83,38 @@ func TestBitsWriter(t *testing.T) {
 	}
 }
 
+var bitsWriter_WriteBytesN_testCases = []struct {
+	bs       []byte
+	n        int
+	expected []byte
+}{
+	{nil, 0, nil},
+	{[]byte{0x00}, 0, nil},
+	{nil, 3, []byte{0xff, 0xff, 0xff}},
+	{[]byte("en"), 3, []byte{'e', 'n', 0xff}},
+	{[]byte("eng"), 3, []byte{'e', 'n', 'g'}},
+	{[]byte("english"), 3, []byte{'e', 'n', 'g'}},
+}
+
+func TestBitsWriter_WriteBytesN(t *testing.T) {
+	padByte := uint8(0xff)
+	for _, tt := range bitsWriter_WriteBytesN_testCases {
+		t.Run(fmt.Sprintf("%v/%d", tt.bs, tt.n), func(t *testing.T) {
+			buf := bytes.Buffer{}
+			w := NewBitsWriter(BitsWriterOptions{Writer: &buf})
+
+			err := w.WriteBytesN(tt.bs, tt.n, padByte)
+			if err != nil {
+				t.Errorf("expected no error, got %+v", err)
+			}
+
+			if !reflect.DeepEqual(tt.expected, buf.Bytes()) {
+				t.Errorf("expected %+v, got %+v", tt.expected, buf.Bytes())
+			}
+		})
+	}
+}
+
 // testLimitedWriter is an implementation of io.Writer with max write size limit to test error handling
 type testLimitedWriter struct {
 	BytesLimit int
@@ -175,6 +207,22 @@ func BenchmarkBitsWriter_WriteN(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				bw.Reset()
 				w.WriteN(bm.i, bm.n)
+			}
+		})
+	}
+}
+
+func BenchmarkBitsWriter_WriteBytesN(b *testing.B) {
+	bw := &bytes.Buffer{}
+	bw.Grow(1024)
+	w := NewBitsWriter(BitsWriterOptions{Writer: bw})
+
+	for _, bm := range bitsWriter_WriteBytesN_testCases {
+		b.Run(fmt.Sprintf("%v/%d", bm.bs, bm.n), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				bw.Reset()
+				w.WriteBytesN(bm.bs, bm.n, 0xff)
 			}
 		})
 	}
