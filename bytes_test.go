@@ -24,6 +24,14 @@ func TestBytesIterator(t *testing.T) {
 	if e := []byte("23"); !bytes.Equal(e, bs) {
 		t.Errorf("expected %+v, got %+v", e, bs)
 	}
+	i.Seek(1)
+	bs, err = i.NextBytesFast(2)
+	if err != nil {
+		t.Errorf("expected no error, got %+v", err)
+	}
+	if e := []byte("23"); !bytes.Equal(e, bs) {
+		t.Errorf("expected %+v, got %+v", e, bs)
+	}
 	i.Seek(4)
 	b, err = i.NextByte()
 	if err != nil {
