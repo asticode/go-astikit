@@ -39,11 +39,11 @@ func (i *BytesIterator) NextBytes(n int) (bs []byte, err error) {
 	return
 }
 
-// NextBytesFast returns the n next bytes
+// NextBytesNoCopy returns the n next bytes
 // Be careful with this function as it doesn't make a copy of returned data.
 // bs will point to internal BytesIterator buffer.
 // If you need to modify returned bytes or store it for some time, use NextBytes instead
-func (i *BytesIterator) NextBytesFast(n int) (bs []byte, err error) {
+func (i *BytesIterator) NextBytesNoCopy(n int) (bs []byte, err error) {
 	if len(i.bs) < i.offset+n {
 		err = fmt.Errorf("astikit: slice length is %d, offset %d is invalid", len(i.bs), i.offset+n)
 		return

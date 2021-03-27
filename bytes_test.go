@@ -25,7 +25,7 @@ func TestBytesIterator(t *testing.T) {
 		t.Errorf("expected %+v, got %+v", e, bs)
 	}
 	i.Seek(1)
-	bs, err = i.NextBytesFast(2)
+	bs, err = i.NextBytesNoCopy(2)
 	if err != nil {
 		t.Errorf("expected no error, got %+v", err)
 	}
