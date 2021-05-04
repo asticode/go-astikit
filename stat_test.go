@@ -56,7 +56,7 @@ func TestStater(t *testing.T) {
 				h3.Add(10)
 				h3.Add(20)
 				h3.Add(30)
-			default:
+			case 2:
 				ss = stats
 				cancel()
 			}
