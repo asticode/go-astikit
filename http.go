@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -244,8 +245,16 @@ func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
 
 	// Unmarshal body out
 	if o.BodyOut != nil {
-		if err = json.NewDecoder(resp.Body).Decode(o.BodyOut); err != nil {
-			err = fmt.Errorf("astikit: unmarshaling failed: %w", err)
+		// Read all
+		var b []byte
+		if b, err = ioutil.ReadAll(resp.Body); err != nil {
+			err = fmt.Errorf("astikit: reading all failed: %w", err)
+			return
+		}
+
+		// Unmarshal
+		if err = json.Unmarshal(b, o.BodyOut); err != nil {
+			err = fmt.Errorf("astikit: unmarshaling failed: %w (json: %s)", err, b)
 			return
 		}
 	}
