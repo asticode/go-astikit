@@ -36,7 +36,7 @@ func (s *mockedSSHSession) Wait() error { return nil }
 func TestSSHCopyFunc(t *testing.T) {
 	var c int
 	s := newMockedSSHSession()
-	err := CopyFile(context.Background(), "/path/to/dst", "testdata/ssh/f", SSHCopyFileFunc(func() (SSHSession, *Closer, error) {
+	err := CopyFile(context.Background(), "/path/to with space/dst", "testdata/ssh/f", SSHCopyFileFunc(func() (SSHSession, *Closer, error) {
 		c++
 		return s, NewCloser(), nil
 	}))
@@ -46,7 +46,7 @@ func TestSSHCopyFunc(t *testing.T) {
 	if e := 2; c != e {
 		t.Errorf("expected %v, got %v", e, c)
 	}
-	if e := []string{"mkdir -p /path/to", "scp -qt \"/path/to\""}; !reflect.DeepEqual(e, s.cmds) {
+	if e := []string{"mkdir -p /path/to\\ with\\ space", "scp -qt /path/to\\ with\\ space"}; !reflect.DeepEqual(e, s.cmds) {
 		t.Errorf("expected %+v, got %+v", e, s.cmds)
 	}
 	if e, g := "C0775 1 dst\n0\x00", s.buf.String(); e != g {
