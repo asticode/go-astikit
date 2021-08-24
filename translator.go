@@ -33,6 +33,7 @@ func NewTranslator(o TranslatorOptions) *Translator {
 }
 
 // ParseDir adds translations located in ".json" files in the specified dir
+// If ".json" files are located in child dirs, keys will be prefixed with their paths
 func (t *Translator) ParseDir(dirPath string) (err error) {
 	// Default dir path
 	if dirPath == "" {
@@ -50,11 +51,8 @@ func (t *Translator) ParseDir(dirPath string) (err error) {
 			return
 		}
 
-		// Only process first level files
+		// Only process files
 		if info.IsDir() {
-			if path != dirPath {
-				err = filepath.SkipDir
-			}
 			return
 		}
 
@@ -64,7 +62,7 @@ func (t *Translator) ParseDir(dirPath string) (err error) {
 		}
 
 		// Parse file
-		if err = t.ParseFile(path); err != nil {
+		if err = t.ParseFile(dirPath, path); err != nil {
 			err = fmt.Errorf("astikit: parsing %s failed: %w", path, err)
 			return
 		}
@@ -77,7 +75,7 @@ func (t *Translator) ParseDir(dirPath string) (err error) {
 }
 
 // ParseFile adds translation located in the provided path
-func (t *Translator) ParseFile(path string) (err error) {
+func (t *Translator) ParseFile(dirPath, path string) (err error) {
 	// Lock
 	t.m.Lock()
 	defer t.m.Unlock()
@@ -97,8 +95,20 @@ func (t *Translator) ParseFile(path string) (err error) {
 		return
 	}
 
+	// Get prefix
+	prefix := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	if dp := filepath.Dir(path); dp != dirPath {
+		var fs []string
+		for _, v := range strings.Split(strings.TrimPrefix(dp, dirPath), string(os.PathSeparator)) {
+			if v != "" {
+				fs = append(fs, v)
+			}
+		}
+		prefix += "." + strings.Join(fs, ".")
+	}
+
 	// Parse
-	t.parse(p, strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)))
+	t.parse(p, prefix)
 	return
 }
 
@@ -131,7 +141,9 @@ func (t *Translator) HTTPMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-const contextKeyTranslatorLanguage = "astikit.translator.language"
+const contextKeyTranslatorLanguage = contextKey("astikit.translator.language")
+
+type contextKey string
 
 func contextWithTranslatorLanguage(ctx context.Context, language string) context.Context {
 	return context.WithValue(ctx, contextKeyTranslatorLanguage, language)

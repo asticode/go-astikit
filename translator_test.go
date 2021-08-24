@@ -17,9 +17,11 @@ func TestTranslator(t *testing.T) {
 		t.Errorf("expected no error, got %v", err)
 	}
 	if e := map[string]string{
-		"en.1":   "1",
-		"en.2.3": "3",
-		"fr.4":   "4",
+		"en.1":       "1",
+		"en.2.3":     "3",
+		"en.d1.5":    "5",
+		"en.d1.d2.6": "6",
+		"fr.4":       "4",
 	}; !reflect.DeepEqual(e, tl.p) {
 		t.Errorf("expected %+v, got %+v", e, tl.p)
 	}
@@ -58,6 +60,11 @@ func TestTranslator(t *testing.T) {
 		{
 			expected: "en.5",
 			key:      "5",
+			language: "en",
+		},
+		{
+			expected: "6",
+			key:      "d1.d2.6",
 			language: "en",
 		},
 	} {
