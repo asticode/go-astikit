@@ -64,6 +64,17 @@ func (c *Closer) Add(f CloseFunc) {
 	c.fs = append([]CloseFunc{f}, c.fs...)
 }
 
+func (c *Closer) Append(dst *Closer) {
+	// Lock
+	c.mf.Lock()
+	dst.mf.Lock()
+	defer c.mf.Unlock()
+	defer dst.mf.Unlock()
+
+	// Append
+	c.fs = append(c.fs, dst.fs...)
+}
+
 // NewChild creates a new child closer
 func (c *Closer) NewChild() (child *Closer) {
 	child = NewCloser()
