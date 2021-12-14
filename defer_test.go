@@ -7,8 +7,10 @@ import (
 )
 
 func TestCloser(t *testing.T) {
+	var c int
 	var o []string
 	c1 := NewCloser()
+	c1.OnClosed(func(err error) { c++ })
 	c2 := c1.NewChild()
 	c1.Add(func() error {
 		o = append(o, "1")
@@ -33,5 +35,11 @@ func TestCloser(t *testing.T) {
 	c1.Add(func() error { return nil })
 	if err = c1.Close(); err != nil {
 		t.Errorf("expected no error, got %+v", err)
+	}
+	if e, g := 2, c; e != g {
+		t.Errorf("expected %v, got %v", e, g)
+	}
+	if !c1.IsClosed() {
+		t.Error("expected true, got false")
 	}
 }
