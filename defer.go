@@ -12,9 +12,12 @@ type Closer struct {
 	closed bool
 	fs     []CloseFunc
 	// We need to split into 2 mutexes to allow using .Add() in .Do()
-	mc *sync.Mutex // Locks .Close()
-	mf *sync.Mutex // Locks fs
+	mc       *sync.Mutex // Locks .Close()
+	mf       *sync.Mutex // Locks fs
+	onClosed CloserOnClosed
 }
+
+type CloserOnClosed func(err error)
 
 // NewCloser creates a new closer
 func NewCloser() *Closer {
@@ -46,6 +49,11 @@ func (c *Closer) Close() error {
 
 	// Update attribute
 	c.closed = true
+
+	// Callback
+	if c.onClosed != nil {
+		c.onClosed(err)
+	}
 
 	// Return
 	if err.IsNil() {
@@ -97,4 +105,16 @@ func (c *Closer) Do(fn func()) {
 
 	// Callback
 	fn()
+}
+
+func (c *Closer) OnClosed(fn CloserOnClosed) {
+	c.mc.Lock()
+	defer c.mc.Unlock()
+	c.onClosed = fn
+}
+
+func (c *Closer) IsClosed() bool {
+	c.mc.Lock()
+	defer c.mc.Unlock()
+	return c.closed
 }
