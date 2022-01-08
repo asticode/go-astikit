@@ -72,7 +72,7 @@ func TestPCMSampleRateConverter(t *testing.T) {
 	// Nothing to do
 	c := NewPCMSampleRateConverter(1, 1, 1, sampleFunc)
 	for _, s := range i {
-		c.Add(s)
+		c.Add(s) //nolint:errcheck
 	}
 	if !reflect.DeepEqual(o, i) {
 		t.Errorf("got %+v, expected %+v", i, o)
@@ -82,7 +82,7 @@ func TestPCMSampleRateConverter(t *testing.T) {
 	o = []int{}
 	c = NewPCMSampleRateConverter(5, 3, 1, sampleFunc)
 	for _, s := range i {
-		c.Add(s)
+		c.Add(s) //nolint:errcheck
 	}
 	if e := []int{1, 2, 4, 6, 7, 9, 11, 12, 14, 16, 17, 19}; !reflect.DeepEqual(e, o) {
 		t.Errorf("got %+v, expected %+v", o, e)
@@ -92,7 +92,7 @@ func TestPCMSampleRateConverter(t *testing.T) {
 	o = []int{}
 	c = NewPCMSampleRateConverter(4, 2, 2, sampleFunc)
 	for _, s := range i {
-		c.Add(s)
+		c.Add(s) //nolint:errcheck
 	}
 	if e := []int{1, 2, 4, 5, 8, 9, 12, 13, 16, 17}; !reflect.DeepEqual(e, o) {
 		t.Errorf("got %+v, expected %+v", o, e)
@@ -106,7 +106,7 @@ func TestPCMSampleRateConverter(t *testing.T) {
 	o = []int{}
 	c = NewPCMSampleRateConverter(44100, 16000, 2, sampleFunc)
 	for _, s := range i {
-		c.Add(s)
+		c.Add(s) //nolint:errcheck
 	}
 	if e, g := 4*16000, len(o); g != e {
 		t.Errorf("invalid len, got %v, expected %v", g, e)
@@ -122,7 +122,7 @@ func TestPCMSampleRateConverter(t *testing.T) {
 	o = []int{}
 	c = NewPCMSampleRateConverter(3, 5, 1, sampleFunc)
 	for _, s := range i {
-		c.Add(s)
+		c.Add(s) //nolint:errcheck
 	}
 	if e := []int{1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 7, 7, 8, 8, 9, 10, 10}; !reflect.DeepEqual(e, o) {
 		t.Errorf("got %+v, expected %+v", o, e)
@@ -132,7 +132,7 @@ func TestPCMSampleRateConverter(t *testing.T) {
 	o = []int{}
 	c = NewPCMSampleRateConverter(3, 5, 2, sampleFunc)
 	for _, s := range i {
-		c.Add(s)
+		c.Add(s) //nolint:errcheck
 	}
 	if e := []int{1, 2, 1, 2, 3, 4, 3, 4, 5, 6, 7, 8, 7, 8, 9, 10, 9, 10}; !reflect.DeepEqual(e, o) {
 		t.Errorf("got %+v, expected %+v", o, e)
@@ -156,7 +156,7 @@ func TestPCMChannelsConverter(t *testing.T) {
 	// Nothing to do
 	c := NewPCMChannelsConverter(3, 3, sampleFunc)
 	for _, s := range i {
-		c.Add(s)
+		c.Add(s) //nolint:errcheck
 	}
 	if !reflect.DeepEqual(i, o) {
 		t.Errorf("got %+v, expected %+v", o, i)
@@ -166,7 +166,7 @@ func TestPCMChannelsConverter(t *testing.T) {
 	o = []int{}
 	c = NewPCMChannelsConverter(3, 1, sampleFunc)
 	for _, s := range i {
-		c.Add(s)
+		c.Add(s) //nolint:errcheck
 	}
 	if e := []int{1, 4, 7, 10, 13, 16, 19}; !reflect.DeepEqual(e, o) {
 		t.Errorf("got %+v, expected %+v", o, e)
@@ -176,7 +176,7 @@ func TestPCMChannelsConverter(t *testing.T) {
 	o = []int{}
 	c = NewPCMChannelsConverter(1, 2, sampleFunc)
 	for _, s := range i {
-		c.Add(s)
+		c.Add(s) //nolint:errcheck
 	}
 	if e := []int{1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20}; !reflect.DeepEqual(o, e) {
 		t.Errorf("got %+v, expected %+v", o, e)

@@ -183,7 +183,7 @@ func BenchmarkBitsWriter_Write(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				bw.Reset()
-				w.Write(bm.input)
+				w.Write(bm.input) //nolint:errcheck
 			}
 		})
 	}
@@ -217,7 +217,7 @@ func BenchmarkBitsWriter_WriteN(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				bw.Reset()
-				w.WriteN(bm.i, bm.n)
+				w.WriteN(bm.i, bm.n) //nolint:errcheck
 			}
 		})
 	}
@@ -233,7 +233,7 @@ func BenchmarkBitsWriter_WriteBytesN(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				bw.Reset()
-				w.WriteBytesN(bm.bs, bm.n, 0xff)
+				w.WriteBytesN(bm.bs, bm.n, 0xff) //nolint:errcheck
 			}
 		})
 	}

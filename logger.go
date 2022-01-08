@@ -31,6 +31,15 @@ type SeverityLogger interface {
 	Warnf(format string, v ...interface{})
 }
 
+type TestLogger interface {
+	Error(v ...interface{})
+	Errorf(format string, v ...interface{})
+	Fatal(v ...interface{})
+	Fatalf(format string, v ...interface{})
+	Log(v ...interface{})
+	Logf(format string, v ...interface{})
+}
+
 // SeverityCtxLogger represents a severity with context logger
 type SeverityCtxLogger interface {
 	DebugC(ctx context.Context, v ...interface{})
@@ -167,5 +176,39 @@ func AdaptStdLogger(i StdLogger) CompleteLogger {
 		l.warnC = func(ctx context.Context, v ...interface{}) { l.warn(v...) }
 		l.warnCf = func(ctx context.Context, format string, v ...interface{}) { l.warnf(format, v...) }
 	}
+	return l
+}
+
+// AdaptTestLogger transforms a TestLogger into a CompleteLogger if needed
+func AdaptTestLogger(i TestLogger) CompleteLogger {
+	if v, ok := i.(CompleteLogger); ok {
+		return v
+	}
+	l := newCompleteLogger()
+	if i == nil {
+		return l
+	}
+	l.error = i.Error
+	l.errorf = i.Errorf
+	l.fatal = i.Fatal
+	l.fatalf = i.Fatalf
+	l.print = i.Log
+	l.printf = i.Logf
+	l.debug = l.print
+	l.debugf = l.printf
+	l.info = l.print
+	l.infof = l.printf
+	l.warn = l.print
+	l.warnf = l.printf
+	l.debugC = func(ctx context.Context, v ...interface{}) { l.debug(v...) }
+	l.debugCf = func(ctx context.Context, format string, v ...interface{}) { l.debugf(format, v...) }
+	l.errorC = func(ctx context.Context, v ...interface{}) { l.error(v...) }
+	l.errorCf = func(ctx context.Context, format string, v ...interface{}) { l.errorf(format, v...) }
+	l.fatalC = func(ctx context.Context, v ...interface{}) { l.fatal(v...) }
+	l.fatalCf = func(ctx context.Context, format string, v ...interface{}) { l.fatalf(format, v...) }
+	l.infoC = func(ctx context.Context, v ...interface{}) { l.info(v...) }
+	l.infoCf = func(ctx context.Context, format string, v ...interface{}) { l.infof(format, v...) }
+	l.warnC = func(ctx context.Context, v ...interface{}) { l.warn(v...) }
+	l.warnCf = func(ctx context.Context, format string, v ...interface{}) { l.warnf(format, v...) }
 	return l
 }

@@ -42,13 +42,13 @@ func TestWriterAdapter(t *testing.T) {
 	})
 
 	// No Split
-	w.Write([]byte("bla bla "))
+	w.Write([]byte("bla bla ")) //nolint:errcheck
 	if len(o) != 0 {
 		t.Errorf("expected %v, got %v", 0, len(o))
 	}
 
 	// Multi Split
-	w.Write([]byte("bla \nbla bla\nbla"))
+	w.Write([]byte("bla \nbla bla\nbla")) //nolint:errcheck
 	if e := []string{"bla bla bla ", "bla bla"}; !reflect.DeepEqual(o, e) {
 		t.Errorf("expected %+v, got %+v", e, o)
 	}

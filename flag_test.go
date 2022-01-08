@@ -25,7 +25,7 @@ func TestFlagCmd(t *testing.T) {
 func TestFlagStrings(t *testing.T) {
 	f := NewFlagStrings()
 	flag.Var(f, "t", "")
-	flag.CommandLine.Parse([]string{"-t", "1", "-t", "2", "-t", "1"})
+	flag.CommandLine.Parse([]string{"-t", "1", "-t", "2", "-t", "1"}) //nolint:errcheck
 	if e := (FlagStrings{
 		Map: map[string]bool{
 			"1": true,

@@ -389,6 +389,7 @@ func (d *HTTPDownloader) download(ctx context.Context, srcs []HTTPDownloaderSrc,
 			}
 
 			// Do
+			//nolint:errcheck
 			d.l.Do(func() {
 				// Task is done
 				defer wg.Done()

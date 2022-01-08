@@ -117,7 +117,7 @@ func TestGoroutineLimiter(t *testing.T) {
 		time.Sleep(time.Millisecond)
 	}
 	for idx := 0; idx < n; idx++ {
-		l.Do(fn)
+		l.Do(fn) //nolint:errcheck
 	}
 	wg.Wait()
 	if e := 2; e != max {

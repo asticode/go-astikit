@@ -35,7 +35,7 @@ func TestServeHTTP(t *testing.T) {
 	go func() {
 		c := &http.Client{}
 		r, _ := http.NewRequest(http.MethodGet, "http://"+ln.Addr().String(), nil)
-		c.Do(r)
+		c.Do(r) //nolint:errcheck
 	}()
 	w.Wait()
 	if e := 1; i != e {
@@ -132,7 +132,7 @@ func TestHTTPSender(t *testing.T) {
 				gu = req.URL.String()
 				resp = &http.Response{Body: ioutil.NopCloser(&bytes.Buffer{}), StatusCode: http.StatusBadRequest}
 			case http.MethodPost:
-				json.NewDecoder(req.Body).Decode(&gbi)
+				json.NewDecoder(req.Body).Decode(&gbi) //nolint:errcheck
 				resp = &http.Response{Body: ioutil.NopCloser(bytes.NewBuffer([]byte("\"" + ebe + "\""))), StatusCode: http.StatusBadRequest}
 			case http.MethodGet:
 				resp = &http.Response{Body: ioutil.NopCloser(bytes.NewBuffer([]byte("\"" + ebo + "\""))), StatusCode: http.StatusOK}
