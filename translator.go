@@ -104,8 +104,14 @@ func (t *Translator) ParseFile(dirPath, path string) (err error) {
 		return
 	}
 
+	// Get language
+	language := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+
+	// Update valid languages
+	t.validLanguages[language] = true
+
 	// Get prefix
-	prefix := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	prefix := language
 	if dp := filepath.Dir(path); dp != dirPath {
 		var fs []string
 		for _, v := range strings.Split(strings.TrimPrefix(dp, dirPath), string(os.PathSeparator)) {

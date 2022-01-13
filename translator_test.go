@@ -9,10 +9,7 @@ import (
 
 func TestTranslator(t *testing.T) {
 	// Setup
-	tl := NewTranslator(TranslatorOptions{
-		DefaultLanguage: "fr",
-		ValidLanguages:  []string{"en", "fr"},
-	})
+	tl := NewTranslator(TranslatorOptions{DefaultLanguage: "fr"})
 
 	// Parse dir
 	err := tl.ParseDir("testdata/translator")
