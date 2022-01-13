@@ -9,7 +9,10 @@ import (
 
 func TestTranslator(t *testing.T) {
 	// Setup
-	tl := NewTranslator(TranslatorOptions{DefaultLanguage: "fr"})
+	tl := NewTranslator(TranslatorOptions{
+		DefaultLanguage: "fr",
+		ValidLanguages:  []string{"en", "fr"},
+	})
 
 	// Parse dir
 	err := tl.ParseDir("testdata/translator")
@@ -50,7 +53,7 @@ func TestTranslator(t *testing.T) {
 		{
 			expected: "3",
 			key:      "2.3",
-			language: "en",
+			language: "en-US,en;q=0.8",
 		},
 		{
 			expected: "4",
@@ -66,6 +69,11 @@ func TestTranslator(t *testing.T) {
 			expected: "6",
 			key:      "d1.d2.6",
 			language: "en",
+		},
+		{
+			expected: "4",
+			key:      "4",
+			language: "it",
 		},
 	} {
 		r, err := http.NewRequest(http.MethodGet, s.URL, nil)
@@ -83,5 +91,15 @@ func TestTranslator(t *testing.T) {
 		if !reflect.DeepEqual(v.expected, o) {
 			t.Errorf("expected %+v, got %+v", v.expected, o)
 		}
+	}
+}
+
+func TestTranslator_ParseAcceptLanguage(t *testing.T) {
+	tl := NewTranslator(TranslatorOptions{ValidLanguages: []string{"en", "fr"}})
+	if e, g := "", tl.parseAcceptLanguage(""); !reflect.DeepEqual(e, g) {
+		t.Errorf("expected %+v, got %+v", e, g)
+	}
+	if e, g := "fr", tl.parseAcceptLanguage(" fr-FR, fr ; q=0.9 ,en;q=0.7,en-US;q=0.8 "); !reflect.DeepEqual(e, g) {
+		t.Errorf("expected %+v, got %+v", e, g)
 	}
 }
