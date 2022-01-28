@@ -114,23 +114,28 @@ func TestHTTPSender(t *testing.T) {
 		ebe = "error"
 		ebi = "body-in"
 		ebo = "body-out"
-		eh  = map[string]string{
+		ehi = map[string]string{
 			"K1": "v1",
 			"K2": "v2",
 		}
-		eu = "https://domain.com/url"
+		eho = http.Header{"k1": []string{"v1"}}
+		eu  = "https://domain.com/url"
 	)
 	var gu, gbi string
-	gh := make(map[string]string)
+	ghi := make(map[string]string)
 	s = NewHTTPSender(HTTPSenderOptions{
 		Client: mockedHTTPClient(func(req *http.Request) (resp *http.Response, err error) {
 			switch req.Method {
 			case http.MethodHead:
 				for k, v := range req.Header {
-					gh[k] = strings.Join(v, ",")
+					ghi[k] = strings.Join(v, ",")
 				}
 				gu = req.URL.String()
-				resp = &http.Response{Body: ioutil.NopCloser(&bytes.Buffer{}), StatusCode: http.StatusBadRequest}
+				resp = &http.Response{
+					Body:       ioutil.NopCloser(&bytes.Buffer{}),
+					Header:     eho,
+					StatusCode: http.StatusBadRequest,
+				}
 			case http.MethodPost:
 				json.NewDecoder(req.Body).Decode(&gbi) //nolint:errcheck
 				resp = &http.Response{Body: ioutil.NopCloser(bytes.NewBuffer([]byte("\"" + ebe + "\""))), StatusCode: http.StatusBadRequest}
@@ -140,15 +145,20 @@ func TestHTTPSender(t *testing.T) {
 			return
 		}),
 	})
+	var gho http.Header
 	if err := s.SendJSON(HTTPSendJSONOptions{
-		Headers: eh,
-		Method:  http.MethodHead,
-		URL:     eu,
+		HeadersIn:  ehi,
+		HeadersOut: func(h http.Header) { gho = h },
+		Method:     http.MethodHead,
+		URL:        eu,
 	}); err == nil {
 		t.Error("expected error, got nil")
 	}
-	if !reflect.DeepEqual(eh, gh) {
-		t.Errorf("expected %+v, got %+v", eh, gh)
+	if !reflect.DeepEqual(ehi, ghi) {
+		t.Errorf("expected %+v, got %+v", ehi, ghi)
+	}
+	if !reflect.DeepEqual(eho, gho) {
+		t.Errorf("expected %+v, got %+v", eho, gho)
 	}
 	if gu != eu {
 		t.Errorf("expected %s, got %s", eu, gu)

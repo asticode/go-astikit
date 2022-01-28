@@ -185,14 +185,17 @@ func (s *HTTPSender) SendWithTimeout(req *http.Request, timeout time.Duration) (
 	return
 }
 
+type HTTPSenderHeaderFunc func(h http.Header)
+
 // HTTPSendJSONOptions represents SendJSON options
 type HTTPSendJSONOptions struct {
-	BodyError interface{}
-	BodyIn    interface{}
-	BodyOut   interface{}
-	Headers   map[string]string
-	Method    string
-	URL       string
+	BodyError  interface{}
+	BodyIn     interface{}
+	BodyOut    interface{}
+	HeadersIn  map[string]string
+	HeadersOut HTTPSenderHeaderFunc
+	Method     string
+	URL        string
 }
 
 // SendJSON sends a new JSON HTTP request
@@ -216,7 +219,7 @@ func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
 	}
 
 	// Add headers
-	for k, v := range o.Headers {
+	for k, v := range o.HeadersIn {
 		req.Header.Set(k, v)
 	}
 
@@ -227,6 +230,11 @@ func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
 		return
 	}
 	defer resp.Body.Close()
+
+	// Process headers
+	if o.HeadersOut != nil {
+		o.HeadersOut(resp.Header)
+	}
 
 	// Process status code
 	if code := resp.StatusCode; code < 200 || code > 299 {
