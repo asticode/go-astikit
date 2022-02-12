@@ -25,8 +25,11 @@ func TestCloser(t *testing.T) {
 		o = append(o, "3")
 		return errors.New("3")
 	})
+	c1.AddWithoutError(func() {
+		o = append(o, "4")
+	})
 	err := c1.Close()
-	if e := []string{"2", "1", "3"}; !reflect.DeepEqual(o, e) {
+	if e := []string{"4", "2", "1", "3"}; !reflect.DeepEqual(o, e) {
 		t.Errorf("expected %+v, got %+v", e, o)
 	}
 	if e, g := "2 && 1 && 3", err.Error(); !reflect.DeepEqual(g, e) {

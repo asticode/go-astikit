@@ -72,6 +72,13 @@ func (c *Closer) Add(f CloseFunc) {
 	c.fs = append([]CloseFunc{f}, c.fs...)
 }
 
+func (c *Closer) AddWithoutError(f func()) {
+	c.Add(func() error {
+		f()
+		return nil
+	})
+}
+
 func (c *Closer) Append(dst *Closer) {
 	// Lock
 	c.mf.Lock()
