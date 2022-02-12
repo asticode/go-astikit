@@ -4,8 +4,8 @@ import (
 	"sync"
 )
 
-// CloseFunc is a method that closes something
 type CloseFunc func() error
+type CloseWithoutErrorFunc func()
 
 // Closer is an object that can close several things
 type Closer struct {
@@ -72,7 +72,7 @@ func (c *Closer) Add(f CloseFunc) {
 	c.fs = append([]CloseFunc{f}, c.fs...)
 }
 
-func (c *Closer) AddWithoutError(f func()) {
+func (c *Closer) AddWithoutError(f CloseWithoutErrorFunc) {
 	c.Add(func() error {
 		f()
 		return nil
