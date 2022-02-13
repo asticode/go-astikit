@@ -4,13 +4,13 @@ import (
 	"sync"
 )
 
-type CloseFunc func() error
-type CloseWithoutErrorFunc func()
+type CloseFunc func()
+type CloseFuncWithError func() error
 
 // Closer is an object that can close several things
 type Closer struct {
 	closed bool
-	fs     []CloseFunc
+	fs     []CloseFuncWithError
 	// We need to split into 2 mutexes to allow using .Add() in .Do()
 	mc       *sync.Mutex // Locks .Close()
 	mf       *sync.Mutex // Locks fs
@@ -45,7 +45,7 @@ func (c *Closer) Close() error {
 	}
 
 	// Reset closers
-	c.fs = []CloseFunc{}
+	c.fs = []CloseFuncWithError{}
 
 	// Update attribute
 	c.closed = true
@@ -62,21 +62,20 @@ func (c *Closer) Close() error {
 	return err
 }
 
-// Add adds a close func at the beginning of the list
 func (c *Closer) Add(f CloseFunc) {
+	c.AddWithError(func() error {
+		f()
+		return nil
+	})
+}
+
+func (c *Closer) AddWithError(f CloseFuncWithError) {
 	// Lock
 	c.mf.Lock()
 	defer c.mf.Unlock()
 
 	// Append
-	c.fs = append([]CloseFunc{f}, c.fs...)
-}
-
-func (c *Closer) AddWithoutError(f CloseWithoutErrorFunc) {
-	c.Add(func() error {
-		f()
-		return nil
-	})
+	c.fs = append([]CloseFuncWithError{f}, c.fs...)
 }
 
 func (c *Closer) Append(dst *Closer) {
@@ -93,7 +92,7 @@ func (c *Closer) Append(dst *Closer) {
 // NewChild creates a new child closer
 func (c *Closer) NewChild() (child *Closer) {
 	child = NewCloser()
-	c.Add(child.Close)
+	c.AddWithError(child.Close)
 	return
 }
 
