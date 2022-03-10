@@ -187,6 +187,8 @@ func (s *HTTPSender) SendWithTimeout(req *http.Request, timeout time.Duration) (
 
 type HTTPSenderHeaderFunc func(h http.Header)
 
+type HTTPSenderStatusCodeFunc func(code int) error
+
 // HTTPSendJSONOptions represents SendJSON options
 type HTTPSendJSONOptions struct {
 	BodyError      interface{}
@@ -195,7 +197,7 @@ type HTTPSendJSONOptions struct {
 	HeadersIn      map[string]string
 	HeadersOut     HTTPSenderHeaderFunc
 	Method         string
-	StatusCodeFunc func(code int) error
+	StatusCodeFunc HTTPSenderStatusCodeFunc
 	URL            string
 }
 
