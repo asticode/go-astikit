@@ -189,13 +189,14 @@ type HTTPSenderHeaderFunc func(h http.Header)
 
 // HTTPSendJSONOptions represents SendJSON options
 type HTTPSendJSONOptions struct {
-	BodyError  interface{}
-	BodyIn     interface{}
-	BodyOut    interface{}
-	HeadersIn  map[string]string
-	HeadersOut HTTPSenderHeaderFunc
-	Method     string
-	URL        string
+	BodyError      interface{}
+	BodyIn         interface{}
+	BodyOut        interface{}
+	HeadersIn      map[string]string
+	HeadersOut     HTTPSenderHeaderFunc
+	Method         string
+	StatusCodeFunc func(code int) error
+	URL            string
 }
 
 // SendJSON sends a new JSON HTTP request
@@ -237,7 +238,11 @@ func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
 	}
 
 	// Process status code
-	if code := resp.StatusCode; code < 200 || code > 299 {
+	fn := HTTPSenderDefaultStatusCodeFunc
+	if o.StatusCodeFunc != nil {
+		fn = o.StatusCodeFunc
+	}
+	if err = fn(resp.StatusCode); err != nil {
 		// Try unmarshaling error
 		if o.BodyError != nil {
 			if err2 := json.NewDecoder(resp.Body).Decode(o.BodyError); err2 == nil {
@@ -247,7 +252,7 @@ func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
 		}
 
 		// Default error
-		err = fmt.Errorf("astikit: invalid status code %d", code)
+		err = fmt.Errorf("astikit: validating status code %d failed: %w", resp.StatusCode, err)
 		return
 	}
 
@@ -267,6 +272,13 @@ func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
 		}
 	}
 	return
+}
+
+func HTTPSenderDefaultStatusCodeFunc(code int) error {
+	if code < 200 || code > 299 {
+		return errors.New("astikit: status code should be between 200 and 299")
+	}
+	return nil
 }
 
 // HTTPResponseFunc is a func that can process an $http.Response

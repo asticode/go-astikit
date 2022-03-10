@@ -146,13 +146,22 @@ func TestHTTPSender(t *testing.T) {
 		}),
 	})
 	var gho http.Header
+	errTest := errors.New("test")
 	if err := s.SendJSON(HTTPSendJSONOptions{
 		HeadersIn:  ehi,
 		HeadersOut: func(h http.Header) { gho = h },
 		Method:     http.MethodHead,
-		URL:        eu,
+		StatusCodeFunc: func(code int) error {
+			if code == http.StatusBadRequest {
+				return errTest
+			}
+			return nil
+		},
+		URL: eu,
 	}); err == nil {
 		t.Error("expected error, got nil")
+	} else if !errors.Is(err, errTest) {
+		t.Error("expected true, got false")
 	}
 	if !reflect.DeepEqual(ehi, ghi) {
 		t.Errorf("expected %+v, got %+v", ehi, ghi)
