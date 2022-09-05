@@ -72,11 +72,7 @@ func (w *BitsWriter) Write(i interface{}) error {
 			}
 		}
 	case []byte:
-		for _, b := range a {
-			if err := w.writeFullByte(b); err != nil {
-				return err
-			}
-		}
+		return w.writeByteSlice(a)
 	case bool:
 		if a {
 			return w.writeBit(1)
@@ -117,6 +113,25 @@ func (w *BitsWriter) WriteBytesN(bs []byte, n int, padByte uint8) error {
 		}
 	}
 
+	return nil
+}
+
+func (w *BitsWriter) writeByteSlice(in []byte) error {
+	// this method is for push as much byte to writer/callback in one batch
+	if w.cacheLen != 0 {
+		for _, b := range in {
+			if err := w.writeFullByte(b); err != nil {
+				return err
+			}
+		}
+	} else {
+		if _, err := w.w.Write(in); err != nil {
+			return err
+		}
+		if w.writeCb != nil {
+			w.writeCb(in)
+		}
+	}
 	return nil
 }
 
@@ -163,7 +178,10 @@ func (w *BitsWriter) writeFullByte(b byte) error {
 }
 
 func (w *BitsWriter) writeBit(bit byte) error {
-	w.cache = w.cache | (bit)<<(7-w.cacheLen)
+	//We didn't need to disjunct zero bit, just move cursor
+	if bit != 0 {
+		w.cache |= 1 << (7 - w.cacheLen)
+	}
 	w.cacheLen++
 	if w.cacheLen == 8 {
 		w.bsCache[0] = w.cache
@@ -193,12 +211,50 @@ func (w *BitsWriter) WriteN(i interface{}, n int) error {
 		return errors.New("astikit: invalid type")
 	}
 
-	for i := n - 1; i >= 0; i-- {
-		err := w.writeBit(byte(toWrite>>i) & 0x1)
-		if err != nil {
-			return err
+	var err error
+
+	//Packing as many bits in one go as we can and if it's possible we even write it as full byte
+
+	for n > 0 {
+		if w.cacheLen == 0 {
+			if n >= 8 {
+				n -= 8
+				err = w.writeFullByte(byte(toWrite >> n))
+			} else {
+				w.cacheLen = uint8(n)
+				w.cache = byte(toWrite << (8 - w.cacheLen))
+				n = 0
+			}
+		} else {
+			free := int(8 - w.cacheLen)
+			m := n
+			if m >= free {
+				m = free
+			}
+
+			if n <= free {
+				w.cache |= byte(toWrite << (free - m))
+			} else {
+				w.cache |= byte(toWrite >> (n - m))
+			}
+			n -= m
+			w.cacheLen += uint8(m)
+			if w.cacheLen == 8 {
+				w.bsCache[0] = w.cache
+				if err := w.flushBsCache(); err != nil {
+					return err
+				}
+
+				w.cacheLen = 0
+				w.cache = 0
+			}
 		}
 	}
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
