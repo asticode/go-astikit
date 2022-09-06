@@ -147,10 +147,7 @@ func (w *BitsWriter) writeByteSlice(in []byte) error {
 
 func (w *BitsWriter) writeFullInt(in uint64, len int) error {
 	if w.bo == binary.BigEndian {
-		err := w.writeBitsN(in, len)
-		if err != nil {
-			return err
-		}
+		return w.writeBitsN(in, len*8)
 	} else {
 		for i := 0; i < len; i++ {
 			err := w.writeFullByte(byte(in >> (i * 8)))
@@ -267,12 +264,7 @@ func (w *BitsWriter) WriteN(i interface{}, n int) error {
 		return errors.New("astikit: invalid type")
 	}
 
-	err := w.writeBitsN(toWrite, n)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return w.writeBitsN(toWrite, n)
 }
 
 // BitsWriterBatch allows to chain multiple Write* calls and check for error only once
