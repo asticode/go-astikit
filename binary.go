@@ -206,11 +206,11 @@ func (w *BitsWriter) writeBitsN(toWrite uint64, n int) (err error) {
 	for n > 0 {
 		if w.cacheLen == 0 {
 			if n >= 8 {
+				n -= 8
 				w.bsCache[0] = byte(toWrite >> n)
 				if err = w.flushBsCache(); err != nil {
 					return
 				}
-				n -= 8
 			} else {
 				w.cacheLen = uint8(n)
 				w.cache = byte(toWrite << (8 - w.cacheLen))
