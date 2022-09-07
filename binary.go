@@ -121,7 +121,6 @@ func (w *BitsWriter) WriteBytesN(bs []byte, n int, padByte uint8) error {
 }
 
 func (w *BitsWriter) writeByteSlice(in []byte) error {
-	// this method for push as much byte to writer in one batch
 	if len(in) == 0 {
 		return nil
 	}
@@ -133,13 +132,19 @@ func (w *BitsWriter) writeByteSlice(in []byte) error {
 			}
 		}
 	} else {
-		if _, err := w.w.Write(in); err != nil {
-			return err
-		}
-		if w.writeCb != nil {
-			for i := range in {
-				w.writeCb(in[i : i+1])
-			}
+		return w.write(in)
+	}
+
+	return nil
+}
+
+func (w *BitsWriter) write(b []byte) error {
+	if _, err := w.w.Write(b); err != nil {
+		return err
+	}
+	if w.writeCb != nil {
+		for i := range b {
+			w.writeCb(b[i : i+1])
 		}
 	}
 	return nil
@@ -161,15 +166,7 @@ func (w *BitsWriter) writeFullInt(in uint64, len int) error {
 }
 
 func (w *BitsWriter) flushBsCache() error {
-	if _, err := w.w.Write(w.bsCache); err != nil {
-		return err
-	}
-
-	if w.writeCb != nil {
-		w.writeCb(w.bsCache)
-	}
-
-	return nil
+	return w.write(w.bsCache)
 }
 
 func (w *BitsWriter) writeFullByte(b byte) error {
@@ -183,7 +180,6 @@ func (w *BitsWriter) writeFullByte(b byte) error {
 }
 
 func (w *BitsWriter) writeBit(bit byte) error {
-	//We didn't need to disjunct zero bit, just move cursor
 	if bit != 0 {
 		w.cache |= 1 << (7 - w.cacheLen)
 	}
@@ -201,7 +197,7 @@ func (w *BitsWriter) writeBit(bit byte) error {
 }
 
 func (w *BitsWriter) writeBitsN(toWrite uint64, n int) (err error) {
-	//Packing as many bits as we can and if it's possible write it as full byte
+	toWrite &= ^uint64(0) >> (64 - n)
 
 	for n > 0 {
 		if w.cacheLen == 0 {
@@ -217,7 +213,6 @@ func (w *BitsWriter) writeBitsN(toWrite uint64, n int) (err error) {
 				n = 0
 			}
 		} else {
-
 			free := int(8 - w.cacheLen)
 			m := n
 			if m >= free {
