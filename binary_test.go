@@ -194,7 +194,7 @@ func BenchmarkBitsWriter_WriteN(b *testing.B) {
 		i interface{}
 		n int
 	}
-	benchmarks := []benchData{}
+	benchmarks := make([]benchData, 0, 128)
 	for i := 1; i <= 8; i++ {
 		benchmarks = append(benchmarks, benchData{uint8(0xff), i})
 	}
