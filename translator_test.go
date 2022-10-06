@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -21,6 +22,7 @@ func TestTranslator(t *testing.T) {
 		"en.2.3":     "3",
 		"en.d1.5":    "5",
 		"en.d1.d2.6": "6",
+		"en.f":       "f%sf",
 		"fr.4":       "4",
 	}; !reflect.DeepEqual(e, tl.p) {
 		t.Errorf("expected %+v, got %+v", e, tl.p)
@@ -29,12 +31,23 @@ func TestTranslator(t *testing.T) {
 	// Middleware
 	var o string
 	s := httptest.NewServer(ChainHTTPMiddlewares(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		o = tl.TranslateCtx(r.Context(), r.Header.Get("key"))
+		var args []interface{}
+		if v := r.Header.Get("args"); v != "" {
+			for _, s := range strings.Split(v, ",") {
+				args = append(args, s)
+			}
+		}
+		if len(args) > 0 {
+			o = tl.TranslateCf(r.Context(), r.Header.Get("key"), args...)
+		} else {
+			o = tl.TranslateC(r.Context(), r.Header.Get("key"))
+		}
 	}), tl.HTTPMiddleware))
 	defer s.Close()
 
 	// Translate
 	for _, v := range []struct {
+		args     []string
 		expected string
 		key      string
 		language string
@@ -72,10 +85,19 @@ func TestTranslator(t *testing.T) {
 			key:      "4",
 			language: "it",
 		},
+		{
+			args:     []string{"arg"},
+			expected: "fargf",
+			key:      "f",
+			language: "en",
+		},
 	} {
 		r, err := http.NewRequest(http.MethodGet, s.URL, nil)
 		if err != nil {
 			t.Errorf("expected no error, got %+v", err)
+		}
+		if len(v.args) > 0 {
+			r.Header.Set("args", strings.Join(v.args, ","))
 		}
 		r.Header.Set("key", v.key)
 		if v.language != "" {

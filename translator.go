@@ -252,7 +252,21 @@ func (t *Translator) Translate(language, key string) string {
 	return k1
 }
 
-// TranslateCtx translates a key using the language specified in the context
+// Translatef translates a key into a specific language with optional formatting args
+func (t *Translator) Translatef(language, key string, args ...interface{}) string {
+	return fmt.Sprintf(t.Translate(language, key), args...)
+}
+
+// TranslateCtx is an alias for TranslateC
 func (t *Translator) TranslateCtx(ctx context.Context, key string) string {
+	return t.TranslateC(ctx, key)
+}
+
+// TranslateC translates a key using the language specified in the context
+func (t *Translator) TranslateC(ctx context.Context, key string) string {
 	return t.Translate(translatorLanguageFromContext(ctx), key)
+}
+
+func (t *Translator) TranslateCf(ctx context.Context, key string, args ...interface{}) string {
+	return t.Translatef(translatorLanguageFromContext(ctx), key, args...)
 }
