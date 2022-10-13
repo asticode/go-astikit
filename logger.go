@@ -4,6 +4,59 @@ import (
 	"context"
 )
 
+// LoggerLevel represents a logger level
+type LoggerLevel int
+
+// Logger levels
+const (
+	LoggerLevelDebug LoggerLevel = iota
+	LoggerLevelError
+	LoggerLevelFatal
+	LoggerLevelInfo
+	LoggerLevelWarn
+)
+
+// LoggerLevelFromString creates a logger level from string
+func LoggerLevelFromString(s string) LoggerLevel {
+	switch s {
+	case "debug":
+		return LoggerLevelDebug
+	case "error":
+		return LoggerLevelError
+	case "fatal":
+		return LoggerLevelFatal
+	case "warn":
+		return LoggerLevelWarn
+	default:
+		return LoggerLevelInfo
+	}
+}
+
+func (l LoggerLevel) String() string {
+	switch l {
+	case LoggerLevelDebug:
+		return "debug"
+	case LoggerLevelError:
+		return "error"
+	case LoggerLevelFatal:
+		return "fatal"
+	case LoggerLevelWarn:
+		return "warn"
+	default:
+		return "info"
+	}
+}
+
+func (l *LoggerLevel) UnmarshalText(b []byte) error {
+	*l = LoggerLevelFromString(string(b))
+	return nil
+}
+
+func (l LoggerLevel) MarshalText() ([]byte, error) {
+	b := []byte(l.String())
+	return b, nil
+}
+
 // CompleteLogger represents a complete logger
 type CompleteLogger interface {
 	StdLogger

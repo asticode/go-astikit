@@ -47,11 +47,11 @@ type mockedHTTPClient func(req *http.Request) (*http.Response, error)
 
 func (c mockedHTTPClient) Do(req *http.Request) (*http.Response, error) { return c(req) }
 
-type mockedNetError struct{ temporary bool }
+type mockedNetError struct{ timeout bool }
 
 func (err mockedNetError) Error() string   { return "" }
-func (err mockedNetError) Timeout() bool   { return false }
-func (err mockedNetError) Temporary() bool { return err.temporary }
+func (err mockedNetError) Timeout() bool   { return err.timeout }
+func (err mockedNetError) Temporary() bool { return false }
 
 func TestHTTPSender(t *testing.T) {
 	// All errors
@@ -80,7 +80,7 @@ func TestHTTPSender(t *testing.T) {
 			case 1:
 				resp = &http.Response{StatusCode: http.StatusInternalServerError}
 			case 2:
-				err = mockedNetError{temporary: true}
+				err = mockedNetError{timeout: true}
 			default:
 				// No retrying
 				resp = &http.Response{StatusCode: http.StatusBadRequest}
