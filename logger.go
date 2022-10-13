@@ -10,10 +10,10 @@ type LoggerLevel int
 // Logger levels
 const (
 	LoggerLevelDebug LoggerLevel = iota
-	LoggerLevelError
-	LoggerLevelFatal
 	LoggerLevelInfo
 	LoggerLevelWarn
+	LoggerLevelError
+	LoggerLevelFatal
 )
 
 // LoggerLevelFromString creates a logger level from string
