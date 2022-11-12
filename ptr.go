@@ -56,3 +56,8 @@ func UInt8Ptr(i uint8) *uint8 {
 func UInt32Ptr(i uint32) *uint32 {
 	return &i
 }
+
+// UInt64Ptr transforms a uint64 into a *uint64
+func UInt64Ptr(i uint64) *uint64 {
+	return &i
+}
