@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -23,17 +24,19 @@ func TestStater(t *testing.T) {
 	}
 
 	// Add stats
-	v1 := NewCounterRateStat()
+	var u1 uint64
+	v1 := NewAtomicUint64RateStat(&u1)
 	m1 := &StatMetadata{Description: "1"}
 	o1 := StatOptions{Metadata: m1, Valuer: v1}
-	v2 := NewDurationPercentageStat()
+	d2 := NewAtomicDuration(0)
+	v2 := NewAtomicDurationPercentageStat(d2)
 	m2 := &StatMetadata{Description: "2"}
 	o2 := StatOptions{Metadata: m2, Valuer: v2}
-	v3 := NewCounterAvgStat()
+	d3 := NewAtomicDuration(0)
+	v3 := NewAtomicDurationAvgStat(d3, &u1)
 	m3 := &StatMetadata{Description: "3"}
 	o3 := StatOptions{Metadata: m3, Valuer: v3}
-	v4 := NewCounterStat()
-	v4.Add(1)
+	v4 := StatValuerFunc(func(d time.Duration) interface{} { return 42 })
 	m4 := &StatMetadata{Description: "4"}
 	o4 := StatOptions{Metadata: m4, Valuer: v4}
 
@@ -48,19 +51,12 @@ func TestStater(t *testing.T) {
 			c++
 			switch c {
 			case 1:
-				v1.Add(10)
-				mn.Lock()
-				nowV = time.Unix(0, 0)
-				mn.Unlock()
-				v2.Begin()
+				atomic.AddUint64(&u1, 10)
+				d2.Add(4 * time.Second)
+				d3.Add(10 * time.Second)
 				mn.Lock()
 				nowV = time.Unix(5, 0)
 				mn.Unlock()
-				v2.End()
-				v3.Add(10)
-				v3.Add(20)
-				v3.Add(30)
-				v4.Add(1)
 			case 2:
 				ss = stats
 				cancel()
@@ -73,9 +69,9 @@ func TestStater(t *testing.T) {
 	defer s.Stop()
 	for _, e := range []StatValue{
 		{StatMetadata: m1, Value: 2.0},
-		{StatMetadata: m2, Value: 100.0},
-		{StatMetadata: m3, Value: 20.0},
-		{StatMetadata: m4, Value: 2.0},
+		{StatMetadata: m2, Value: 80.0},
+		{StatMetadata: m3, Value: time.Second},
+		{StatMetadata: m4, Value: 42},
 	} {
 		found := false
 		for _, s := range ss {

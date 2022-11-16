@@ -31,15 +31,15 @@ const (
 // in which adding new funcs is blocking
 // Check out ChanOptions for detailed options
 type Chan struct {
-	cancel        context.CancelFunc
-	c             *sync.Cond
-	ctx           context.Context
-	fs            []func()
-	mc            *sync.Mutex // Locks ctx
-	mf            *sync.Mutex // Locks fs
-	o             ChanOptions
-	running       uint32
-	statWorkRatio *DurationPercentageStat
+	cancel           context.CancelFunc
+	c                *sync.Cond
+	ctx              context.Context
+	fs               []func()
+	mc               *sync.Mutex // Locks ctx
+	mf               *sync.Mutex // Locks fs
+	o                ChanOptions
+	running          uint32
+	statWorkDuration *AtomicDuration
 }
 
 // ChanOptions are Chan options
@@ -59,10 +59,11 @@ type ChanOptions struct {
 // NewChan creates a new Chan
 func NewChan(o ChanOptions) *Chan {
 	return &Chan{
-		c:  sync.NewCond(&sync.Mutex{}),
-		mc: &sync.Mutex{},
-		mf: &sync.Mutex{},
-		o:  o,
+		c:                sync.NewCond(&sync.Mutex{}),
+		mc:               &sync.Mutex{},
+		mf:               &sync.Mutex{},
+		o:                o,
+		statWorkDuration: NewAtomicDuration(0),
 	}
 }
 
@@ -126,13 +127,9 @@ func (c *Chan) Start(ctx context.Context) {
 			c.mf.Unlock()
 
 			// Execute func
-			if c.statWorkRatio != nil {
-				c.statWorkRatio.Begin()
-			}
+			n := time.Now()
 			fn()
-			if c.statWorkRatio != nil {
-				c.statWorkRatio.End()
-			}
+			c.statWorkDuration.Add(time.Since(n))
 
 			// Remove first func
 			c.mf.Lock()
@@ -202,11 +199,18 @@ func (c *Chan) Reset() {
 	c.fs = []func(){}
 }
 
+// ChanStats represents the chan stats
+type ChanStats struct {
+	WorkDuration time.Duration
+}
+
 // Stats returns the chan stats
-func (c *Chan) Stats() []StatOptions {
-	if c.statWorkRatio == nil {
-		c.statWorkRatio = NewDurationPercentageStat()
-	}
+func (c *Chan) Stats() ChanStats {
+	return ChanStats{WorkDuration: c.statWorkDuration.Duration()}
+}
+
+// StatOptions returns the chan stat options
+func (c *Chan) StatOptions() []StatOptions {
 	return []StatOptions{
 		{
 			Metadata: &StatMetadata{
@@ -215,7 +219,7 @@ func (c *Chan) Stats() []StatOptions {
 				Name:        StatNameWorkRatio,
 				Unit:        "%",
 			},
-			Valuer: c.statWorkRatio,
+			Valuer: NewAtomicDurationPercentageStat(c.statWorkDuration),
 		},
 	}
 }
@@ -486,4 +490,28 @@ func (m *RWMutex) IsDeadlocked(timeout time.Duration) (bool, string) {
 	}()
 	<-ctx.Done()
 	return errors.Is(ctx.Err(), context.DeadlineExceeded), m.c
+}
+
+type AtomicDuration struct {
+	d time.Duration
+	m *sync.Mutex
+}
+
+func NewAtomicDuration(d time.Duration) *AtomicDuration {
+	return &AtomicDuration{
+		d: d,
+		m: &sync.Mutex{},
+	}
+}
+
+func (d *AtomicDuration) Add(delta time.Duration) {
+	d.m.Lock()
+	defer d.m.Unlock()
+	d.d += delta
+}
+
+func (d *AtomicDuration) Duration() time.Duration {
+	d.m.Lock()
+	defer d.m.Unlock()
+	return d.d
 }

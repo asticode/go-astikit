@@ -38,12 +38,13 @@ type StatMetadata struct {
 
 // StatValuer represents a stat valuer
 type StatValuer interface {
-	Value() interface{}
+	Value(delta time.Duration) interface{}
 }
 
-// StatValuerOverTime represents a stat valuer over time
-type StatValuerOverTime interface {
-	Value(delta time.Duration) interface{}
+type StatValuerFunc func(d time.Duration) interface{}
+
+func (f StatValuerFunc) Value(d time.Duration) interface{} {
+	return f(d)
 }
 
 // StatValue represents a stat value
@@ -104,8 +105,6 @@ func (s *Stater) Start(ctx context.Context) {
 					// Get value
 					var v interface{}
 					if h, ok := o.Valuer.(StatValuer); ok {
-						v = h.Value()
-					} else if h, ok := o.Valuer.(StatValuerOverTime); ok {
 						v = h.Value(delta)
 					} else {
 						continue
@@ -153,149 +152,81 @@ func (s *Stater) DelStats(os ...StatOptions) {
 	}
 }
 
-type durationStatOverTime struct {
-	d           time.Duration
-	fn          func(d, delta time.Duration) interface{}
-	m           *sync.Mutex // Locks isStarted
-	lastBeginAt time.Time
+type AtomicUint64RateStat struct {
+	last *uint64
+	v    *uint64
 }
 
-func newDurationStatOverTime(fn func(d, delta time.Duration) interface{}) *durationStatOverTime {
-	return &durationStatOverTime{
-		fn: fn,
-		m:  &sync.Mutex{},
+func NewAtomicUint64RateStat(v *uint64) *AtomicUint64RateStat {
+	return &AtomicUint64RateStat{v: v}
+}
+
+func (s *AtomicUint64RateStat) Value(d time.Duration) interface{} {
+	current := atomic.LoadUint64(s.v)
+	defer func() { s.last = &current }()
+	if d <= 0 {
+		return 0.0
+	}
+	var last uint64
+	if s.last != nil {
+		last = *s.last
+	}
+	return float64(current-last) / d.Seconds()
+}
+
+type AtomicDurationPercentageStat struct {
+	d    *AtomicDuration
+	last *time.Duration
+}
+
+func NewAtomicDurationPercentageStat(d *AtomicDuration) *AtomicDurationPercentageStat {
+	return &AtomicDurationPercentageStat{d: d}
+}
+
+func (s *AtomicDurationPercentageStat) Value(d time.Duration) interface{} {
+	current := s.d.Duration()
+	defer func() { s.last = &current }()
+	if d <= 0 {
+		return 0.0
+	}
+	var last time.Duration
+	if s.last != nil {
+		last = *s.last
+	}
+	return float64(current-last) / float64(d) * 100
+}
+
+type AtomicDurationAvgStat struct {
+	count     *uint64
+	d         *AtomicDuration
+	last      *time.Duration
+	lastCount *uint64
+}
+
+func NewAtomicDurationAvgStat(d *AtomicDuration, count *uint64) *AtomicDurationAvgStat {
+	return &AtomicDurationAvgStat{
+		count: count,
+		d:     d,
 	}
 }
 
-func (s *durationStatOverTime) Begin() {
-	s.m.Lock()
-	defer s.m.Unlock()
-	s.lastBeginAt = now()
-}
-
-func (s *durationStatOverTime) End() {
-	s.m.Lock()
-	defer s.m.Unlock()
-	s.d += now().Sub(s.lastBeginAt)
-	s.lastBeginAt = time.Time{}
-}
-
-func (s *durationStatOverTime) Value(delta time.Duration) (o interface{}) {
-	// Lock
-	s.m.Lock()
-	defer s.m.Unlock()
-
-	// Get current values
-	n := now()
-	d := s.d
-
-	// Recording is still in process
-	if !s.lastBeginAt.IsZero() {
-		d += n.Sub(s.lastBeginAt)
-		s.lastBeginAt = n
+func (s *AtomicDurationAvgStat) Value(_ time.Duration) interface{} {
+	current := s.d.Duration()
+	currentCount := atomic.LoadUint64(s.count)
+	defer func() {
+		s.last = &current
+		s.lastCount = &currentCount
+	}()
+	var last time.Duration
+	var lastCount uint64
+	if s.last != nil {
+		last = *s.last
 	}
-
-	// Compute stat
-	o = s.fn(d, delta)
-	s.d = 0
-	return
-}
-
-// DurationPercentageStat is an object capable of computing the percentage of time some work is taking per second
-type DurationPercentageStat struct {
-	*durationStatOverTime
-}
-
-// NewDurationPercentageStat creates a new duration percentage stat
-func NewDurationPercentageStat() *DurationPercentageStat {
-	return &DurationPercentageStat{durationStatOverTime: newDurationStatOverTime(func(d, delta time.Duration) interface{} {
-		if delta == 0 {
-			return 0
-		}
-		return float64(d) / float64(delta) * 100
-	})}
-}
-
-type counterStatOverTime struct {
-	c  float64
-	fn func(c, t float64, delta time.Duration) interface{}
-	m  *sync.Mutex // Locks isStarted
-	t  float64
-}
-
-func newCounterStatOverTime(fn func(c, t float64, delta time.Duration) interface{}) *counterStatOverTime {
-	return &counterStatOverTime{
-		fn: fn,
-		m:  &sync.Mutex{},
+	if s.lastCount != nil {
+		lastCount = *s.lastCount
 	}
-}
-
-func (s *counterStatOverTime) Add(delta float64) {
-	s.m.Lock()
-	defer s.m.Unlock()
-	s.c += delta
-	s.t++
-}
-
-func (s *counterStatOverTime) Value(delta time.Duration) interface{} {
-	s.m.Lock()
-	defer s.m.Unlock()
-	c := s.c
-	t := s.t
-	s.c = 0
-	s.t = 0
-	return s.fn(c, t, delta)
-}
-
-// CounterAvgStat is an object capable of computing the average value of a counter
-type CounterAvgStat struct {
-	*counterStatOverTime
-}
-
-// NewCounterAvgStat creates a new counter avg stat
-func NewCounterAvgStat() *CounterAvgStat {
-	return &CounterAvgStat{counterStatOverTime: newCounterStatOverTime(func(c, t float64, delta time.Duration) interface{} {
-		if t == 0 {
-			return 0
-		}
-		return c / t
-	})}
-}
-
-// CounterRateStat is an object capable of computing the average value of a counter per second
-type CounterRateStat struct {
-	*counterStatOverTime
-}
-
-// NewCounterRateStat creates a new counter rate stat
-func NewCounterRateStat() *CounterRateStat {
-	return &CounterRateStat{counterStatOverTime: newCounterStatOverTime(func(c, t float64, delta time.Duration) interface{} {
-		if delta.Seconds() == 0 {
-			return 0
-		}
-		return c / delta.Seconds()
-	})}
-}
-
-// CounterStat is an object capable of computing a counter that never gets reset
-type CounterStat struct {
-	c float64
-	m *sync.Mutex
-}
-
-// NewCounterStat creates a new counter stat
-func NewCounterStat() *CounterStat {
-	return &CounterStat{m: &sync.Mutex{}}
-}
-
-func (s *CounterStat) Add(delta float64) {
-	s.m.Lock()
-	defer s.m.Unlock()
-	s.c += delta
-}
-
-func (s *CounterStat) Value() interface{} {
-	s.m.Lock()
-	defer s.m.Unlock()
-	return s.c
+	if currentCount-lastCount <= 0 {
+		return time.Duration(0)
+	}
+	return time.Duration(float64(current-last) / float64(currentCount-lastCount))
 }
