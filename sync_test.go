@@ -2,6 +2,7 @@ package astikit
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -143,28 +144,35 @@ func TestEventer(t *testing.T) {
 	}
 }
 
-func TestRWMutex(t *testing.T) {
-	m := NewRWMutex(RWMutexOptions{Name: "test"})
-	d, _ := m.IsDeadlocked(time.Millisecond)
-	if d {
-		t.Error("expected false, got true")
-	}
+type mockedStdLogger struct {
+	ss []string
+}
+
+func (l *mockedStdLogger) Fatal(v ...interface{}) { l.ss = append(l.ss, "fatal: "+fmt.Sprint(v...)) }
+func (l *mockedStdLogger) Fatalf(format string, v ...interface{}) {
+	l.ss = append(l.ss, "fatal: "+fmt.Sprintf(format, v...))
+}
+func (l *mockedStdLogger) Print(v ...interface{}) { l.ss = append(l.ss, "print: "+fmt.Sprint(v...)) }
+func (l *mockedStdLogger) Printf(format string, v ...interface{}) {
+	l.ss = append(l.ss, "print: "+fmt.Sprintf(format, v...))
+}
+
+func TestDebugMutex(t *testing.T) {
+	l := &mockedStdLogger{}
+	m := NewDebugMutex("test", l, DebugMutexWithDeadlockDetection(time.Millisecond))
 	m.Lock()
-	d, c := m.IsDeadlocked(time.Millisecond)
-	if !d {
-		t.Error("expected true, got false")
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		m.Unlock()
+	}()
+	m.Lock()
+	if e, g := 1, len(l.ss); e != g {
+		t.Errorf("expected %d, got %d", e, g)
 	}
-	if e := "github.com/asticode/go-astikit/sync_test.go:"; !strings.Contains(c, e) {
-		t.Errorf("%s should contain %s", c, e)
+	if s, g := "sync_test.go:163", l.ss[0]; !strings.Contains(g, s) {
+		t.Errorf("%s doesn't contain %s", g, s)
 	}
-	m.Unlock()
-	m.RLock()
-	d, c = m.IsDeadlocked(time.Millisecond)
-	if !d {
-		t.Error("expected true, got false")
+	if s, g := "sync_test.go:168", l.ss[0]; !strings.Contains(g, s) {
+		t.Errorf("%s doesn't contain %s", g, s)
 	}
-	if e := "github.com/asticode/go-astikit/sync_test.go:"; !strings.Contains(c, e) {
-		t.Errorf("%s should contain %s", c, e)
-	}
-	m.RUnlock()
 }

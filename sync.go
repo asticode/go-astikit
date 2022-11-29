@@ -418,78 +418,108 @@ func (e *Eventer) Reset() {
 	e.c.Reset()
 }
 
-// RWMutex represents a RWMutex capable of logging its actions to ease deadlock debugging
-type RWMutex struct {
-	c string // Last successful caller
-	l SeverityLogger
-	m *sync.RWMutex
-	n string // Name
+// DebugMutex represents a rwmutex capable of logging its actions to ease deadlock debugging
+type DebugMutex struct {
+	l          CompleteLogger
+	lastCaller string
+	ll         LoggerLevel
+	m          *sync.RWMutex
+	name       string
+	timeout    time.Duration
 }
 
-// RWMutexOptions represents RWMutex options
-type RWMutexOptions struct {
-	Logger StdLogger
-	Name   string
-}
+// DebugMutexOpt represents a debug mutex option
+type DebugMutexOpt func(m *DebugMutex)
 
-// NewRWMutex creates a new RWMutex
-func NewRWMutex(o RWMutexOptions) *RWMutex {
-	return &RWMutex{
-		l: AdaptStdLogger(o.Logger),
-		m: &sync.RWMutex{},
-		n: o.Name,
+// DebugMutexWithLockLogging allows logging all mutex locks
+func DebugMutexWithLockLogging(ll LoggerLevel) DebugMutexOpt {
+	return func(m *DebugMutex) {
+		m.ll = ll
 	}
 }
 
-func (m *RWMutex) caller() (o string) {
+// DebugMutexWithDeadlockDetection allows detecting deadlock for all mutex locks
+func DebugMutexWithDeadlockDetection(timeout time.Duration) DebugMutexOpt {
+	return func(m *DebugMutex) {
+		m.timeout = timeout
+	}
+}
+
+// NewDebugMutex creates a new debug mutex
+func NewDebugMutex(name string, l StdLogger, opts ...DebugMutexOpt) *DebugMutex {
+	m := &DebugMutex{
+		l:    AdaptStdLogger(l),
+		ll:   LoggerLevelDebug - 1,
+		m:    &sync.RWMutex{},
+		name: name,
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+func (m *DebugMutex) caller() (o string) {
 	if _, file, line, ok := runtime.Caller(2); ok {
 		o = fmt.Sprintf("%s:%d", file, line)
 	}
 	return
 }
 
+func (m *DebugMutex) log(fmt string, args ...interface{}) {
+	if m.ll < LoggerLevelDebug {
+		return
+	}
+	m.l.Writef(m.ll, fmt, args...)
+}
+
+func (m *DebugMutex) watchTimeout(caller string, fn func()) {
+	if m.timeout <= 0 {
+		fn()
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), m.timeout)
+	defer cancel()
+
+	go func() {
+		<-ctx.Done()
+		if err := ctx.Err(); err != nil && errors.Is(err, context.DeadlineExceeded) {
+			m.l.Errorf("astikit: %s mutex timed out at %s with last caller at %s", m.name, caller, m.lastCaller)
+		}
+	}()
+
+	fn()
+}
+
 // Lock write locks the mutex
-func (m *RWMutex) Lock() {
+func (m *DebugMutex) Lock() {
 	c := m.caller()
-	m.l.Debugf("astikit: requesting lock for %s at %s", m.n, c)
-	m.m.Lock()
-	m.l.Debugf("astikit: lock acquired for %s at %s", m.n, c)
-	m.c = c
+	m.log("astikit: requesting lock for %s at %s", m.name, c)
+	m.watchTimeout(c, m.m.Lock)
+	m.log("astikit: lock acquired for %s at %s", m.name, c)
+	m.lastCaller = c
 }
 
 // Unlock write unlocks the mutex
-func (m *RWMutex) Unlock() {
+func (m *DebugMutex) Unlock() {
 	m.m.Unlock()
-	m.l.Debugf("astikit: unlock executed for %s", m.n)
+	m.log("astikit: unlock executed for %s", m.name)
 }
 
 // RLock read locks the mutex
-func (m *RWMutex) RLock() {
+func (m *DebugMutex) RLock() {
 	c := m.caller()
-	m.l.Debugf("astikit: requesting rlock for %s at %s", m.n, c)
-	m.m.RLock()
-	m.l.Debugf("astikit: rlock acquired for %s at %s", m.n, c)
-	m.c = c
+	m.log("astikit: requesting rlock for %s at %s", m.name, c)
+	m.watchTimeout(c, m.m.RLock)
+	m.log("astikit: rlock acquired for %s at %s", m.name, c)
+	m.lastCaller = c
 }
 
 // RUnlock read unlocks the mutex
-func (m *RWMutex) RUnlock() {
+func (m *DebugMutex) RUnlock() {
 	m.m.RUnlock()
-	m.l.Debugf("astikit: unlock executed for %s", m.n)
-}
-
-// IsDeadlocked checks whether the mutex is deadlocked with a given timeout
-// and returns the last caller
-func (m *RWMutex) IsDeadlocked(timeout time.Duration) (bool, string) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	go func() {
-		m.m.Lock()
-		cancel()
-		m.m.Unlock()
-	}()
-	<-ctx.Done()
-	return errors.Is(ctx.Err(), context.DeadlineExceeded), m.c
+	m.log("astikit: unlock executed for %s", m.name)
 }
 
 type AtomicDuration struct {
