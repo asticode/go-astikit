@@ -52,6 +52,11 @@ func UInt8Ptr(i uint8) *uint8 {
 	return &i
 }
 
+// UInt16Ptr transforms a uint16 into a *uint16
+func UInt16Ptr(i uint16) *uint16 {
+	return &i
+}
+
 // UInt32Ptr transforms a uint32 into a *uint32
 func UInt32Ptr(i uint32) *uint32 {
 	return &i
