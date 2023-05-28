@@ -26,6 +26,31 @@ func TestErrors(t *testing.T) {
 		}
 		return false
 	})
+	err1 := errors.New("1")
+	err2 := errors.New("2")
+	err3 := errors.New("3")
+	errs = NewErrors(err1, err3)
+	for _, v := range []struct {
+		err      error
+		expected bool
+	}{
+		{
+			err:      err1,
+			expected: true,
+		},
+		{
+			err:      err2,
+			expected: false,
+		},
+		{
+			err:      err3,
+			expected: true,
+		},
+	} {
+		if g := errors.Is(errs, v.err); g != v.expected {
+			t.Errorf("expected %v, got %v", v.expected, g)
+		}
+	}
 }
 
 func TestErrorCause(t *testing.T) {

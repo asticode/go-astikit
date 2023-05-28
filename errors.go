@@ -59,6 +59,17 @@ func (errs *Errors) Error() string {
 	return strings.Join(ss, " && ")
 }
 
+func (errs *Errors) Is(target error) bool {
+	errs.m.Lock()
+	defer errs.m.Unlock()
+	for _, v := range errs.p {
+		if errors.Is(v, target) {
+			return true
+		}
+	}
+	return false
+}
+
 // ErrorCause returns the cause of an error
 func ErrorCause(err error) error {
 	for {
