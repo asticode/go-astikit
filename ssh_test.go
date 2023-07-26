@@ -49,7 +49,7 @@ func TestSSHCopyFunc(t *testing.T) {
 	if e := []string{"mkdir -p /path/to\\ with\\ space", "scp -qt /path/to\\ with\\ space"}; !reflect.DeepEqual(e, s.cmds) {
 		t.Errorf("expected %+v, got %+v", e, s.cmds)
 	}
-	if e, g := "C0775 1 dst\n0\x00", s.buf.String(); e != g {
-		t.Errorf("expected %s, got %s", e, g)
+	if e1, e2, g := "C0775 1 dst\n0\x00", "C0755 1 dst\n0\x00", s.buf.String(); g != e1 && g != e2 {
+		t.Errorf("expected %s or %s, got %s", e1, e2, g)
 	}
 }

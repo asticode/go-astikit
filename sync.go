@@ -420,12 +420,13 @@ func (e *Eventer) Reset() {
 
 // DebugMutex represents a rwmutex capable of logging its actions to ease deadlock debugging
 type DebugMutex struct {
-	l          CompleteLogger
-	lastCaller string
-	ll         LoggerLevel
-	m          *sync.RWMutex
-	name       string
-	timeout    time.Duration
+	l               CompleteLogger
+	lastCaller      string
+	lastCallerMutex *sync.Mutex
+	ll              LoggerLevel
+	m               *sync.RWMutex
+	name            string
+	timeout         time.Duration
 }
 
 // DebugMutexOpt represents a debug mutex option
@@ -448,10 +449,11 @@ func DebugMutexWithDeadlockDetection(timeout time.Duration) DebugMutexOpt {
 // NewDebugMutex creates a new debug mutex
 func NewDebugMutex(name string, l StdLogger, opts ...DebugMutexOpt) *DebugMutex {
 	m := &DebugMutex{
-		l:    AdaptStdLogger(l),
-		ll:   LoggerLevelDebug - 1,
-		m:    &sync.RWMutex{},
-		name: name,
+		l:               AdaptStdLogger(l),
+		lastCallerMutex: &sync.Mutex{},
+		ll:              LoggerLevelDebug - 1,
+		m:               &sync.RWMutex{},
+		name:            name,
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -485,7 +487,10 @@ func (m *DebugMutex) watchTimeout(caller string, fn func()) {
 	go func() {
 		<-ctx.Done()
 		if err := ctx.Err(); err != nil && errors.Is(err, context.DeadlineExceeded) {
-			m.l.Errorf("astikit: %s mutex timed out at %s with last caller at %s", m.name, caller, m.lastCaller)
+			m.lastCallerMutex.Lock()
+			lastCaller := m.lastCaller
+			m.lastCallerMutex.Unlock()
+			m.l.Errorf("astikit: %s mutex timed out at %s with last caller at %s", m.name, caller, lastCaller)
 		}
 	}()
 
@@ -498,7 +503,9 @@ func (m *DebugMutex) Lock() {
 	m.log("astikit: requesting lock for %s at %s", m.name, c)
 	m.watchTimeout(c, m.m.Lock)
 	m.log("astikit: lock acquired for %s at %s", m.name, c)
+	m.lastCallerMutex.Lock()
 	m.lastCaller = c
+	m.lastCallerMutex.Unlock()
 }
 
 // Unlock write unlocks the mutex
@@ -513,7 +520,9 @@ func (m *DebugMutex) RLock() {
 	m.log("astikit: requesting rlock for %s at %s", m.name, c)
 	m.watchTimeout(c, m.m.RLock)
 	m.log("astikit: rlock acquired for %s at %s", m.name, c)
+	m.lastCallerMutex.Lock()
 	m.lastCaller = c
+	m.lastCallerMutex.Unlock()
 }
 
 // RUnlock read unlocks the mutex
