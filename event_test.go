@@ -19,7 +19,7 @@ func TestEvent(t *testing.T) {
 		ons[eventName1] = append(ons[eventName1], payload)
 		return true
 	})
-	m.On(eventName3, func(payload interface{}) (delete bool) {
+	id := m.On(eventName3, func(payload interface{}) (delete bool) {
 		ons[eventName3] = append(ons[eventName3], payload)
 		return false
 	})
@@ -30,6 +30,9 @@ func TestEvent(t *testing.T) {
 	m.Emit(eventName2, 2)
 	m.Emit(eventName3, 1)
 	m.Emit(eventName3, 2)
+
+	m.Off(id)
+	m.Emit(eventName3, 3)
 
 	if e, g := map[astikit.EventName][]interface{}{
 		eventName1: {1},

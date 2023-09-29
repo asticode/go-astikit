@@ -1,7 +1,6 @@
 package astikit
 
 import (
-	"sort"
 	"sync"
 )
 
@@ -10,62 +9,68 @@ type EventHandler func(payload interface{}) (delete bool)
 type EventName string
 
 type EventManager struct {
+	handlerCount uint64
 	// We use a map[int]... so that deletion is as smooth as possible
-	hs  map[EventName]map[int]EventHandler
-	idx int
-	m   *sync.Mutex
+	hs map[EventName]map[uint64]EventHandler
+	m  *sync.Mutex
 }
 
 func NewEventManager() *EventManager {
 	return &EventManager{
-		hs: make(map[EventName]map[int]EventHandler),
+		hs: make(map[EventName]map[uint64]EventHandler),
 		m:  &sync.Mutex{},
 	}
 }
 
-func (m *EventManager) On(n EventName, h EventHandler) {
+func (m *EventManager) On(n EventName, h EventHandler) uint64 {
 	// Lock
 	m.m.Lock()
 	defer m.m.Unlock()
 
 	// Make sure event name exists
 	if _, ok := m.hs[n]; !ok {
-		m.hs[n] = make(map[int]EventHandler)
+		m.hs[n] = make(map[uint64]EventHandler)
 	}
 
-	// Increment index
-	m.idx++
+	// Increment handler count
+	m.handlerCount++
 
 	// Add handler
-	m.hs[n][m.idx] = h
+	m.hs[n][m.handlerCount] = h
+
+	// Return id
+	return m.handlerCount
 }
 
-func (m *EventManager) del(n EventName, idx int) {
+func (m *EventManager) Off(id uint64) {
 	// Lock
 	m.m.Lock()
 	defer m.m.Unlock()
 
-	// Event name doesn't exist
-	if _, ok := m.hs[n]; !ok {
-		return
+	// Loop through handlers
+	for _, ids := range m.hs {
+		// Loop through ids
+		for v := range ids {
+			// Id matches
+			if id == v {
+				delete(ids, id)
+			}
+		}
 	}
-
-	// Delete index
-	delete(m.hs[n], idx)
 }
 
 func (m *EventManager) Emit(n EventName, payload interface{}) {
 	// Loop through handlers
 	for _, h := range m.handlers(n) {
 		if h.h(payload) {
-			m.del(n, h.idx)
+			m.Off(h.id)
 		}
 	}
 }
 
 type eventManagerHandler struct {
-	h   EventHandler
-	idx int
+	h  EventHandler
+	id uint64
 }
 
 func (m *EventManager) handlers(n EventName) (hs []eventManagerHandler) {
@@ -74,24 +79,24 @@ func (m *EventManager) handlers(n EventName) (hs []eventManagerHandler) {
 	defer m.m.Unlock()
 
 	// Index handlers
-	hsm := make(map[int]eventManagerHandler)
-	var idxs []int
+	hsm := make(map[uint64]eventManagerHandler)
+	var ids []uint64
 	if _, ok := m.hs[n]; ok {
-		for idx, h := range m.hs[n] {
-			hsm[idx] = eventManagerHandler{
-				h:   h,
-				idx: idx,
+		for id, h := range m.hs[n] {
+			hsm[id] = eventManagerHandler{
+				h:  h,
+				id: id,
 			}
-			idxs = append(idxs, idx)
+			ids = append(ids, id)
 		}
 	}
 
-	// Sort indexes
-	sort.Ints(idxs)
+	// Sort ids
+	SortUint64(ids)
 
 	// Append
-	for _, idx := range idxs {
-		hs = append(hs, hsm[idx])
+	for _, id := range ids {
+		hs = append(hs, hsm[id])
 	}
 	return
 }
