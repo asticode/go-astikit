@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -268,7 +267,7 @@ func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
 	if o.BodyOut != nil {
 		// Read all
 		var b []byte
-		if b, err = ioutil.ReadAll(resp.Body); err != nil {
+		if b, err = io.ReadAll(resp.Body); err != nil {
 			err = fmt.Errorf("astikit: reading all failed: %w", err)
 			return
 		}

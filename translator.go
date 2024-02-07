@@ -52,6 +52,9 @@ func (t *Translator) ParseDir(dirPath string) (err error) {
 		}
 	}
 
+	// Make sure to clean dir path so that we get consistent path separator with filepath.Walk
+	dirPath = filepath.Clean(dirPath)
+
 	// Walk through dir
 	if err = filepath.Walk(dirPath, func(path string, info os.FileInfo, e error) (err error) {
 		// Check input error

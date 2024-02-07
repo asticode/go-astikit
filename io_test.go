@@ -15,19 +15,19 @@ func TestCopy(t *testing.T) {
 	r, w := bytes.NewBuffer([]byte("bla bla bla")), &bytes.Buffer{}
 	n, err := Copy(ctx, w, r)
 	if e := int64(0); n != e {
-		t.Errorf("expected %v, got %v", e, n)
+		t.Fatalf("expected %v, got %v", e, n)
 	}
 	if e := context.Canceled; !errors.Is(err, e) {
-		t.Errorf("error should be %+v, got %+v", e, err)
+		t.Fatalf("error should be %+v, got %+v", e, err)
 	}
 
 	// Default
 	n, err = Copy(context.Background(), w, r)
 	if e := int64(11); n != e {
-		t.Errorf("expected %v, got %v", e, n)
+		t.Fatalf("expected %v, got %v", e, n)
 	}
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 }
 
@@ -44,18 +44,18 @@ func TestWriterAdapter(t *testing.T) {
 	// No Split
 	w.Write([]byte("bla bla ")) //nolint:errcheck
 	if len(o) != 0 {
-		t.Errorf("expected %v, got %v", 0, len(o))
+		t.Fatalf("expected %v, got %v", 0, len(o))
 	}
 
 	// Multi Split
 	w.Write([]byte("bla \nbla bla\nbla")) //nolint:errcheck
 	if e := []string{"bla bla bla ", "bla bla"}; !reflect.DeepEqual(o, e) {
-		t.Errorf("expected %+v, got %+v", e, o)
+		t.Fatalf("expected %+v, got %+v", e, o)
 	}
 
 	// Close
 	w.Close()
 	if e := []string{"bla bla bla ", "bla bla", "bla"}; !reflect.DeepEqual(o, e) {
-		t.Errorf("expected %+v, got %+v", e, o)
+		t.Fatalf("expected %+v, got %+v", e, o)
 	}
 }

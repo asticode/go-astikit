@@ -81,7 +81,7 @@ func TestStater(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("expected %+v, not found", e)
+			t.Fatalf("expected %+v, not found", e)
 		}
 	}
 }

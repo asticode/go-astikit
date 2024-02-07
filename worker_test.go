@@ -16,6 +16,6 @@ func TestWorker(t *testing.T) {
 	w.Wait()
 	o = append(o, 2)
 	if e := []int{1, 2}; !reflect.DeepEqual(o, e) {
-		t.Errorf("expected %+v, got %+v", e, o)
+		t.Fatalf("expected %+v, got %+v", e, o)
 	}
 }

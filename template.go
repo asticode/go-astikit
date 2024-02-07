@@ -2,7 +2,6 @@ package astikit
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +23,9 @@ func NewTemplater() *Templater {
 
 // AddLayoutsFromDir walks through a dir and add files as layouts
 func (t *Templater) AddLayoutsFromDir(dirPath, ext string) (err error) {
+	// Make sure to clean dir path so that we get consistent path separator with filepath.Walk
+	dirPath = filepath.Clean(dirPath)
+
 	// Get layouts
 	if err = filepath.Walk(dirPath, func(path string, info os.FileInfo, e error) (err error) {
 		// Check input error
@@ -44,7 +46,7 @@ func (t *Templater) AddLayoutsFromDir(dirPath, ext string) (err error) {
 
 		// Read layout
 		var b []byte
-		if b, err = ioutil.ReadFile(path); err != nil {
+		if b, err = os.ReadFile(path); err != nil {
 			err = fmt.Errorf("astikit: reading %s failed: %w", path, err)
 			return
 		}
@@ -61,6 +63,9 @@ func (t *Templater) AddLayoutsFromDir(dirPath, ext string) (err error) {
 
 // AddTemplatesFromDir walks through a dir and add files as templates
 func (t *Templater) AddTemplatesFromDir(dirPath, ext string) (err error) {
+	// Make sure to clean dir path so that we get consistent path separator with filepath.Walk
+	dirPath = filepath.Clean(dirPath)
+
 	// Loop through templates
 	if err = filepath.Walk(dirPath, func(path string, info os.FileInfo, e error) (err error) {
 		// Check input error
@@ -81,7 +86,7 @@ func (t *Templater) AddTemplatesFromDir(dirPath, ext string) (err error) {
 
 		// Read file
 		var b []byte
-		if b, err = ioutil.ReadFile(path); err != nil {
+		if b, err = os.ReadFile(path); err != nil {
 			err = fmt.Errorf("astikit: reading template content of %s failed: %w", path, err)
 			return
 		}

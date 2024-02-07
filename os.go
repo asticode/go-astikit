@@ -43,6 +43,9 @@ func CopyFile(ctx context.Context, dst, src string, f CopyFileFunc) (err error) 
 
 	// Src is a dir
 	if srcStat.IsDir() {
+		// Make sure to clean dir path so that we get consistent path separator with filepath.Walk
+		src = filepath.Clean(src)
+
 		// Walk through the dir
 		if err = filepath.Walk(src, func(path string, info os.FileInfo, errWalk error) (err error) {
 			// Check error
@@ -57,7 +60,7 @@ func CopyFile(ctx context.Context, dst, src string, f CopyFileFunc) (err error) 
 			}
 
 			// Copy
-			p := filepath.Join(dst, strings.TrimPrefix(path, filepath.Clean(src)))
+			p := filepath.Join(dst, strings.TrimPrefix(path, src))
 			if err = CopyFile(ctx, p, path, f); err != nil {
 				err = fmt.Errorf("astikit: copying %s to %s failed: %w", path, p, err)
 				return

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,6 +44,9 @@ func Zip(ctx context.Context, dst, src string) (err error) {
 	// Create zip writer
 	var zw = zip.NewWriter(dstFile)
 	defer zw.Close()
+
+	// Make sure to clean dir path so that we get consistent path separator with filepath.Walk
+	src = filepath.Clean(src)
 
 	// Walk
 	if err = filepath.Walk(src, func(path string, info os.FileInfo, e error) (err error) {
@@ -202,8 +204,8 @@ func createZipSymlink(f *zip.File, p string) (err error) {
 
 	// If file is a symlink we retrieve the target path that is in the content of the file
 	var b []byte
-	if b, err = ioutil.ReadAll(fr); err != nil {
-		return fmt.Errorf("astikit: ioutil.Readall on %s failed: %w", f.Name, err)
+	if b, err = io.ReadAll(fr); err != nil {
+		return fmt.Errorf("astikit: reading all %s failed: %w", f.Name, err)
 	}
 
 	// Create the symlink

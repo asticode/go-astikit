@@ -38,6 +38,6 @@ func TestEvent(t *testing.T) {
 		eventName1: {1},
 		eventName3: {1, 2},
 	}, ons; !reflect.DeepEqual(e, g) {
-		t.Errorf("expected %+v, got %+v", e, g)
+		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 }

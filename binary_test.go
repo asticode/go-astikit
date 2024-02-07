@@ -21,76 +21,76 @@ func TestBitsWriter(t *testing.T) {
 
 	err := w.Write("000000")
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	if e, g := 0, bw.Len(); e != g {
-		t.Errorf("expected %d, got %d", e, g)
+		t.Fatalf("expected %d, got %d", e, g)
 	}
 	err = w.Write(false)
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	err = w.Write(true)
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	if e, g := []byte{1}, bw.Bytes(); !reflect.DeepEqual(e, g) {
-		t.Errorf("expected %+v, got %+v", e, g)
+		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 	err = w.Write([]byte{2, 3})
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	if e, g := []byte{1, 2, 3}, bw.Bytes(); !reflect.DeepEqual(e, g) {
-		t.Errorf("expected %+v, got %+v", e, g)
+		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 	err = w.Write(uint8(4))
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	if e, g := []byte{1, 2, 3, 4}, bw.Bytes(); !reflect.DeepEqual(e, g) {
-		t.Errorf("expected %+v, got %+v", e, g)
+		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 	err = w.Write(uint16(5))
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	if e, g := []byte{1, 2, 3, 4, 0, 5}, bw.Bytes(); !reflect.DeepEqual(e, g) {
-		t.Errorf("expected %+v, got %+v", e, g)
+		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 	err = w.Write(uint32(6))
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	if e, g := []byte{1, 2, 3, 4, 0, 5, 0, 0, 0, 6}, bw.Bytes(); !reflect.DeepEqual(e, g) {
-		t.Errorf("expected %+v, got %+v", e, g)
+		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 	err = w.Write(uint64(7))
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	if e, g := []byte{1, 2, 3, 4, 0, 5, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 7}, bw.Bytes(); !reflect.DeepEqual(e, g) {
-		t.Errorf("expected %+v, got %+v", e, g)
+		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 	if e, g := []byte{1, 2, 3, 4, 0, 5, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 7}, cbBuf.Bytes(); !reflect.DeepEqual(e, g) {
-		t.Errorf("callback buffer: expected %+v, got %+v", e, g)
+		t.Fatalf("callback buffer: expected %+v, got %+v", e, g)
 	}
 	err = w.Write(1)
 	if err == nil {
-		t.Error("expected error")
+		t.Fatal("expected error")
 	}
 
 	bw.Reset()
 	err = w.WriteN(uint8(4), 3)
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	err = w.WriteN(uint16(4096), 13)
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	if e, g := []byte{144, 0}, bw.Bytes(); !reflect.DeepEqual(e, g) {
-		t.Errorf("expected %+v, got %+v", e, g)
+		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 }
 
@@ -116,11 +116,11 @@ func TestBitsWriter_WriteBytesN(t *testing.T) {
 
 			err := w.WriteBytesN(tt.bs, tt.n, padByte)
 			if err != nil {
-				t.Errorf("expected no error, got %+v", err)
+				t.Fatalf("expected no error, got %+v", err)
 			}
 
 			if !reflect.DeepEqual(tt.expected, buf.Bytes()) {
-				t.Errorf("expected %+v, got %+v", tt.expected, buf.Bytes())
+				t.Fatalf("expected %+v, got %+v", tt.expected, buf.Bytes())
 			}
 		})
 	}
@@ -146,17 +146,17 @@ func TestNewBitsWriterBatch(t *testing.T) {
 
 	b.Write(uint8(0))
 	if err := b.Err(); err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	b.Write(uint8(1))
 	if err := b.Err(); err == nil {
-		t.Errorf("expected error, got %+v", err)
+		t.Fatalf("expected error, got %+v", err)
 	}
 
 	// let's check if the error is persisted
 	b.Write(uint8(2))
 	if err := b.Err(); err == nil {
-		t.Errorf("expected error, got %+v", err)
+		t.Fatalf("expected error, got %+v", err)
 	}
 }
 
@@ -281,14 +281,14 @@ func TestByteHamming84Decode(t *testing.T) {
 		e, okE := testByteHamming84Decode(uint8(i))
 		if !okE {
 			if okV {
-				t.Error("expected false, got true")
+				t.Fatal("expected false, got true")
 			}
 		} else {
 			if !okV {
-				t.Error("expected true, got false")
+				t.Fatal("expected true, got false")
 			}
 			if !reflect.DeepEqual(e, v) {
-				t.Errorf("expected %+v, got %+v", e, v)
+				t.Fatalf("expected %+v, got %+v", e, v)
 			}
 		}
 	}
@@ -304,14 +304,14 @@ func TestByteParity(t *testing.T) {
 		okE := testByteParity(uint8(i))
 		if !okE {
 			if okV {
-				t.Error("expected false, got true")
+				t.Fatal("expected false, got true")
 			}
 		} else {
 			if !okV {
-				t.Error("expected true, got false")
+				t.Fatal("expected true, got false")
 			}
 			if e := uint8(i) & 0x7f; e != v {
-				t.Errorf("expected %+v, got %+v", e, v)
+				t.Fatalf("expected %+v, got %+v", e, v)
 			}
 		}
 	}

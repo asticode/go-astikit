@@ -11,16 +11,16 @@ func TestLimiter(t *testing.T) {
 	l.Add("test", 2, time.Second)
 	b, ok := l.Bucket("test")
 	if !ok {
-		t.Error("no bucket found")
+		t.Fatal("no bucket found")
 	}
 	defer b.Close()
 	if !b.Inc() {
-		t.Errorf("got false, expected true")
+		t.Fatalf("got false, expected true")
 	}
 	if !b.Inc() {
-		t.Errorf("got false, expected true")
+		t.Fatalf("got false, expected true")
 	}
 	if b.Inc() {
-		t.Errorf("got true, expected false")
+		t.Fatalf("got true, expected false")
 	}
 }

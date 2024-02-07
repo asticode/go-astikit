@@ -24,19 +24,19 @@ func TestCloser(t *testing.T) {
 	})
 	err := c1.Close()
 	if e := []string{"2", "1", "3"}; !reflect.DeepEqual(o, e) {
-		t.Errorf("expected %+v, got %+v", e, o)
+		t.Fatalf("expected %+v, got %+v", e, o)
 	}
 	if e, g := "2 && 1 && 3", err.Error(); !reflect.DeepEqual(g, e) {
-		t.Errorf("expected %+v, got %+v", e, g)
+		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 	c1.AddWithError(func() error { return nil })
 	if err = c1.Close(); err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	if e, g := 2, c; e != g {
-		t.Errorf("expected %v, got %v", e, g)
+		t.Fatalf("expected %v, got %v", e, g)
 	}
 	if !c1.IsClosed() {
-		t.Error("expected true, got false")
+		t.Fatal("expected true, got false")
 	}
 }

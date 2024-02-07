@@ -32,24 +32,24 @@ func TestLoggerLevel(t *testing.T) {
 		},
 	} {
 		if e, g := v.s, v.l.String(); e != g {
-			t.Errorf("expected %s, got %s", e, g)
+			t.Fatalf("expected %s, got %s", e, g)
 		}
 		b, err := v.l.MarshalText()
 		if err != nil {
-			t.Errorf("expected no error, got %s", err)
+			t.Fatalf("expected no error, got %s", err)
 		}
 		if e, g := v.s, string(b); e != g {
-			t.Errorf("expected %s, got %s", e, g)
+			t.Fatalf("expected %s, got %s", e, g)
 		}
 		if e, g := v.l, LoggerLevelFromString(v.s); e != g {
-			t.Errorf("expected %s, got %s", e, g)
+			t.Fatalf("expected %s, got %s", e, g)
 		}
 		err = l.UnmarshalText([]byte(v.s))
 		if err != nil {
-			t.Errorf("expected no error, got %s", err)
+			t.Fatalf("expected no error, got %s", err)
 		}
 		if e, g := v.l, l; e != g {
-			t.Errorf("expected %s, got %s", e, g)
+			t.Fatalf("expected %s, got %s", e, g)
 		}
 	}
 }

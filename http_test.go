@@ -5,10 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
-	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -27,19 +26,26 @@ func TestServeHTTP(t *testing.T) {
 	ServeHTTP(w, ServeHTTPOptions{
 		Addr: ln.Addr().String(),
 		Handler: http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			w.Stop()
-			time.Sleep(time.Millisecond)
 			i++
+			w.Stop()
 		}),
 	})
-	go func() {
-		c := &http.Client{}
-		r, _ := http.NewRequest(http.MethodGet, "http://"+ln.Addr().String(), nil)
-		c.Do(r) //nolint:errcheck
-	}()
+	s := time.Now()
+	for {
+		if time.Since(s) > time.Second {
+			t.Fatal("timed out")
+		}
+
+		_, err := http.DefaultClient.Get("http://" + ln.Addr().String())
+		if err != nil {
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+		break
+	}
 	w.Wait()
 	if e := 1; i != e {
-		t.Errorf("expected %+v, got %+v", e, i)
+		t.Fatalf("expected %+v, got %+v", e, i)
 	}
 }
 
@@ -65,10 +71,10 @@ func TestHTTPSender(t *testing.T) {
 		RetryMax: 3,
 	})
 	if _, err := s.Send(&http.Request{}); err == nil {
-		t.Error("expected error, got nil")
+		t.Fatal("expected error, got nil")
 	}
 	if e := 4; c != e {
-		t.Errorf("expected %v, got %v", e, c)
+		t.Fatalf("expected %v, got %v", e, c)
 	}
 
 	// Successful after retries
@@ -90,10 +96,10 @@ func TestHTTPSender(t *testing.T) {
 		RetryMax: 3,
 	})
 	if _, err := s.Send(&http.Request{}); err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	if e := 3; c != e {
-		t.Errorf("expected %v, got %v", e, c)
+		t.Fatalf("expected %v, got %v", e, c)
 	}
 
 	// Timeout
@@ -106,7 +112,7 @@ func TestHTTPSender(t *testing.T) {
 		}),
 	})
 	if _, err := s.SendWithTimeout(&http.Request{}, time.Millisecond); err == nil {
-		t.Error("expected error, got nil")
+		t.Fatal("expected error, got nil")
 	}
 
 	// JSON
@@ -132,15 +138,15 @@ func TestHTTPSender(t *testing.T) {
 				}
 				gu = req.URL.String()
 				resp = &http.Response{
-					Body:       ioutil.NopCloser(&bytes.Buffer{}),
+					Body:       io.NopCloser(&bytes.Buffer{}),
 					Header:     eho,
 					StatusCode: http.StatusBadRequest,
 				}
 			case http.MethodPost:
 				json.NewDecoder(req.Body).Decode(&gbi) //nolint:errcheck
-				resp = &http.Response{Body: ioutil.NopCloser(bytes.NewBuffer([]byte("\"" + ebe + "\""))), StatusCode: http.StatusBadRequest}
+				resp = &http.Response{Body: io.NopCloser(bytes.NewBuffer([]byte("\"" + ebe + "\""))), StatusCode: http.StatusBadRequest}
 			case http.MethodGet:
-				resp = &http.Response{Body: ioutil.NopCloser(bytes.NewBuffer([]byte("\"" + ebo + "\""))), StatusCode: http.StatusOK}
+				resp = &http.Response{Body: io.NopCloser(bytes.NewBuffer([]byte("\"" + ebo + "\""))), StatusCode: http.StatusOK}
 			}
 			return
 		}),
@@ -159,18 +165,18 @@ func TestHTTPSender(t *testing.T) {
 		},
 		URL: eu,
 	}); err == nil {
-		t.Error("expected error, got nil")
+		t.Fatal("expected error, got nil")
 	} else if !errors.Is(err, errTest) {
-		t.Error("expected true, got false")
+		t.Fatal("expected true, got false")
 	}
 	if !reflect.DeepEqual(ehi, ghi) {
-		t.Errorf("expected %+v, got %+v", ehi, ghi)
+		t.Fatalf("expected %+v, got %+v", ehi, ghi)
 	}
 	if !reflect.DeepEqual(eho, gho) {
-		t.Errorf("expected %+v, got %+v", eho, gho)
+		t.Fatalf("expected %+v, got %+v", eho, gho)
 	}
 	if gu != eu {
-		t.Errorf("expected %s, got %s", eu, gu)
+		t.Fatalf("expected %s, got %s", eu, gu)
 	}
 	var gbe string
 	if err := s.SendJSON(HTTPSendJSONOptions{
@@ -178,35 +184,29 @@ func TestHTTPSender(t *testing.T) {
 		BodyIn:    ebi,
 		Method:    http.MethodPost,
 	}); !errors.Is(err, ErrHTTPSenderUnmarshaledError) {
-		t.Errorf("expected ErrHTTPSenderUnmarshaledError, got %s", err)
+		t.Fatalf("expected ErrHTTPSenderUnmarshaledError, got %s", err)
 	}
 	if gbe != ebe {
-		t.Errorf("expected %s, got %s", ebe, gbe)
+		t.Fatalf("expected %s, got %s", ebe, gbe)
 	}
 	if gbi != ebi {
-		t.Errorf("expected %s, got %s", ebi, gbi)
+		t.Fatalf("expected %s, got %s", ebi, gbi)
 	}
 	var gbo string
 	if err := s.SendJSON(HTTPSendJSONOptions{
 		BodyOut: &gbo,
 		Method:  http.MethodGet,
 	}); err != nil {
-		t.Errorf("expected no error, got %s", err)
+		t.Fatalf("expected no error, got %s", err)
 	}
 	if gbo != ebo {
-		t.Errorf("expected %s, go %s", ebo, gbo)
+		t.Fatalf("expected %s, go %s", ebo, gbo)
 	}
 }
 
 func TestHTTPDownloader(t *testing.T) {
-	// Create temp dir
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatalf("creating temp dir failed: %s", err)
-	}
-
-	// Make sure to delete temp dir
-	defer os.RemoveAll(dir)
+	// Get temp dir
+	dir := t.TempDir()
 
 	// Create downloader
 	d := NewHTTPDownloader(HTTPDownloaderOptions{
@@ -219,7 +219,7 @@ func TestHTTPDownloader(t *testing.T) {
 					time.Sleep(time.Millisecond)
 				}
 				resp = &http.Response{
-					Body:       ioutil.NopCloser(bytes.NewBufferString(req.URL.EscapedPath())),
+					Body:       io.NopCloser(bytes.NewBufferString(req.URL.EscapedPath())),
 					StatusCode: http.StatusOK,
 				}
 				return
@@ -229,13 +229,13 @@ func TestHTTPDownloader(t *testing.T) {
 	defer d.Close()
 
 	// Download in directory
-	err = d.DownloadInDirectory(context.Background(), dir,
+	err := d.DownloadInDirectory(context.Background(), dir,
 		HTTPDownloaderSrc{URL: "/path/to/1"},
 		HTTPDownloaderSrc{URL: "/path/to/2"},
 		HTTPDownloaderSrc{URL: "/path/to/3"},
 	)
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	checkDir(t, dir, map[string]string{
 		"/1": "/path/to/1",
@@ -251,10 +251,10 @@ func TestHTTPDownloader(t *testing.T) {
 		HTTPDownloaderSrc{URL: "/path/to/3"},
 	)
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	if e, g := "/path/to/1/path/to/2/path/to/3", w.String(); e != g {
-		t.Errorf("expected %s, got %s", e, g)
+		t.Fatalf("expected %s, got %s", e, g)
 	}
 
 	// Download in file
@@ -265,7 +265,7 @@ func TestHTTPDownloader(t *testing.T) {
 		HTTPDownloaderSrc{URL: "/path/to/3"},
 	)
 	if err != nil {
-		t.Errorf("expected no error, got %+v", err)
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	checkFile(t, p, "/path/to/1/path/to/2/path/to/3")
 }

@@ -23,7 +23,7 @@ func TestChan(t *testing.T) {
 	})
 	c.Start(context.Background())
 	if e, g := 1, len(o); e != g {
-		t.Errorf("expected %+v, got %+v", e, g)
+		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 
 	// Process all
@@ -38,7 +38,7 @@ func TestChan(t *testing.T) {
 	})
 	c.Start(context.Background())
 	if e, g := 2, len(o); e != g {
-		t.Errorf("expected %+v, got %+v", e, g)
+		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 
 	// Default order
@@ -53,7 +53,7 @@ func TestChan(t *testing.T) {
 	})
 	c.Start(context.Background())
 	if e := []int{1, 2}; !reflect.DeepEqual(o, e) {
-		t.Errorf("expected %+v, got %+v", e, o)
+		t.Fatalf("expected %+v, got %+v", e, o)
 	}
 
 	// FILO order
@@ -71,7 +71,7 @@ func TestChan(t *testing.T) {
 	})
 	c.Start(context.Background())
 	if e := []int{2, 1}; !reflect.DeepEqual(o, e) {
-		t.Errorf("expected %+v, got %+v", e, o)
+		t.Fatalf("expected %+v, got %+v", e, o)
 	}
 
 	// Block when started
@@ -90,7 +90,7 @@ func TestChan(t *testing.T) {
 	}()
 	c.Start(context.Background())
 	if e := []int{1, 2, 3, 4}; !reflect.DeepEqual(o, e) {
-		t.Errorf("expected %+v, got %+v", e, o)
+		t.Fatalf("expected %+v, got %+v", e, o)
 	}
 }
 
@@ -122,7 +122,7 @@ func TestGoroutineLimiter(t *testing.T) {
 	}
 	wg.Wait()
 	if e := 2; e != max {
-		t.Errorf("expected %+v, got %+v", e, max)
+		t.Fatalf("expected %+v, got %+v", e, max)
 	}
 }
 
@@ -140,7 +140,7 @@ func TestEventer(t *testing.T) {
 	}()
 	e.Start(context.Background())
 	if e := []string{"1.1", "2", "1.2"}; !reflect.DeepEqual(e, o) {
-		t.Errorf("expected %+v, got %+v", e, o)
+		t.Fatalf("expected %+v, got %+v", e, o)
 	}
 }
 
@@ -183,12 +183,12 @@ func TestDebugMutex(t *testing.T) {
 	ss := l.ss
 	l.m.Unlock()
 	if e, g := 1, len(ss); e != g {
-		t.Errorf("expected %d, got %d", e, g)
+		t.Fatalf("expected %d, got %d", e, g)
 	}
 	if s, g := "sync_test.go:176", ss[0]; !strings.Contains(g, s) {
-		t.Errorf("%s doesn't contain %s", g, s)
+		t.Fatalf("%s doesn't contain %s", g, s)
 	}
 	if s, g := "sync_test.go:181", ss[0]; !strings.Contains(g, s) {
-		t.Errorf("%s doesn't contain %s", g, s)
+		t.Fatalf("%s doesn't contain %s", g, s)
 	}
 }
