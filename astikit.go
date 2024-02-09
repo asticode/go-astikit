@@ -1,6 +1,8 @@
 package astikit
 
-import "os"
+import (
+	"os"
+)
 
 // Default modes
 var (
