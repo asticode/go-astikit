@@ -3,7 +3,10 @@ package astikit
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
+	"sync"
+	"time"
 )
 
 // Copy is a copy with a context
@@ -118,4 +121,150 @@ func (w *WriterAdapter) write(i []byte) {
 	if w.o.Callback != nil {
 		w.o.Callback(i)
 	}
+}
+
+var ErrPiperReadTimeout = errors.New("astikit: piper read timeout")
+
+// Piper doesn't block on writes. It will block on reads unless you provide a ReadTimeout
+// in which case it will return, after the provided timeout, an error whose value will either
+// be the provided error or ErrPiperReadTimeout, if no read is available. When closing the
+// piper, it will interrupt any ongoing read/future writes and return either the provided error
+// or io.EOF.
+// Piper doesn't handle multiple readers at the same time.
+type Piper struct {
+	buf    [][]byte
+	c      *sync.Cond
+	closed bool
+	o      PiperOptions
+	m      sync.Mutex
+}
+
+type PiperOptions struct {
+	EOFError    error
+	ReadTimeout PiperReadTimeoutOptions
+}
+
+type PiperReadTimeoutOptions struct {
+	Duration time.Duration
+	Error    error
+}
+
+func NewPiper(o PiperOptions) *Piper {
+	p := &Piper{
+		c: sync.NewCond(&sync.Mutex{}),
+		o: o,
+	}
+	if p.o.EOFError == nil {
+		p.o.EOFError = io.EOF
+	}
+	if p.o.ReadTimeout.Duration > 0 && p.o.ReadTimeout.Error == nil {
+		p.o.ReadTimeout.Error = ErrPiperReadTimeout
+	}
+	return p
+}
+
+func (p *Piper) Close() error {
+	// Update closed
+	p.m.Lock()
+	if p.closed {
+		p.m.Unlock()
+		return nil
+	}
+	p.closed = true
+	p.m.Unlock()
+
+	// Signal
+	p.c.L.Lock()
+	p.c.Signal()
+	p.c.L.Unlock()
+	return nil
+}
+
+func (p *Piper) Read(i []byte) (n int, err error) {
+	// Handle read timeout
+	var ctx context.Context
+	if p.o.ReadTimeout.Duration > 0 {
+		// Create context
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(context.Background(), p.o.ReadTimeout.Duration)
+		defer cancel()
+
+		// Watch the context in a goroutine
+		go func() {
+			// Wait for context to be done
+			<-ctx.Done()
+
+			// Context has timed out
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				// Signal
+				p.c.L.Lock()
+				p.c.Signal()
+				p.c.L.Unlock()
+			}
+		}()
+	}
+
+	// Loop
+	for {
+		// Check context
+		if ctx != nil && ctx.Err() != nil {
+			return 0, p.o.ReadTimeout.Error
+		}
+
+		// Lock
+		p.c.L.Lock()
+		p.m.Lock()
+
+		// Closed
+		if p.closed {
+			p.m.Unlock()
+			p.c.L.Unlock()
+			return 0, p.o.EOFError
+		}
+
+		// Get buffer length
+		l := len(p.buf)
+		p.m.Unlock()
+
+		// Nothing in the buffer, we need to wait
+		if l == 0 {
+			p.c.Wait()
+			p.c.L.Unlock()
+			continue
+		}
+		p.c.L.Unlock()
+
+		// Copy
+		p.m.Lock()
+		n = len(p.buf[0])
+		copy(i, p.buf[0])
+		p.buf = p.buf[1:]
+		p.m.Unlock()
+		return
+	}
+}
+
+func (p *Piper) Write(i []byte) (n int, err error) {
+	// Closed
+	p.m.Lock()
+	if p.closed {
+		p.m.Unlock()
+		return 0, p.o.EOFError
+	}
+	p.m.Unlock()
+
+	// Copy
+	b := make([]byte, len(i))
+	copy(b, i)
+
+	// Append
+	p.m.Lock()
+	p.buf = append(p.buf, b)
+	p.m.Unlock()
+
+	// Signal
+	p.c.L.Lock()
+	p.c.Signal()
+	p.c.L.Unlock()
+	return len(b), nil
 }
