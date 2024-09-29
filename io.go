@@ -123,13 +123,9 @@ func (w *WriterAdapter) write(i []byte) {
 	}
 }
 
-var ErrPiperReadTimeout = errors.New("astikit: piper read timeout")
-
 // Piper doesn't block on writes. It will block on reads unless you provide a ReadTimeout
-// in which case it will return, after the provided timeout, an error whose value will either
-// be the provided error or ErrPiperReadTimeout, if no read is available. When closing the
-// piper, it will interrupt any ongoing read/future writes and return either the provided error
-// or io.EOF.
+// in which case it will return, after the provided timeout, if no read is available. When closing the
+// piper, it will interrupt any ongoing read/future writes and return io.EOF.
 // Piper doesn't handle multiple readers at the same time.
 type Piper struct {
 	buf    [][]byte
@@ -140,27 +136,14 @@ type Piper struct {
 }
 
 type PiperOptions struct {
-	EOFError    error
-	ReadTimeout PiperReadTimeoutOptions
-}
-
-type PiperReadTimeoutOptions struct {
-	Duration time.Duration
-	Error    error
+	ReadTimeout time.Duration
 }
 
 func NewPiper(o PiperOptions) *Piper {
-	p := &Piper{
+	return &Piper{
 		c: sync.NewCond(&sync.Mutex{}),
 		o: o,
 	}
-	if p.o.EOFError == nil {
-		p.o.EOFError = io.EOF
-	}
-	if p.o.ReadTimeout.Duration > 0 && p.o.ReadTimeout.Error == nil {
-		p.o.ReadTimeout.Error = ErrPiperReadTimeout
-	}
-	return p
 }
 
 func (p *Piper) Close() error {
@@ -183,10 +166,10 @@ func (p *Piper) Close() error {
 func (p *Piper) Read(i []byte) (n int, err error) {
 	// Handle read timeout
 	var ctx context.Context
-	if p.o.ReadTimeout.Duration > 0 {
+	if p.o.ReadTimeout > 0 {
 		// Create context
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(context.Background(), p.o.ReadTimeout.Duration)
+		ctx, cancel = context.WithTimeout(context.Background(), p.o.ReadTimeout)
 		defer cancel()
 
 		// Watch the context in a goroutine
@@ -208,7 +191,7 @@ func (p *Piper) Read(i []byte) (n int, err error) {
 	for {
 		// Check context
 		if ctx != nil && ctx.Err() != nil {
-			return 0, p.o.ReadTimeout.Error
+			return 0, nil
 		}
 
 		// Lock
@@ -219,7 +202,7 @@ func (p *Piper) Read(i []byte) (n int, err error) {
 		if p.closed {
 			p.m.Unlock()
 			p.c.L.Unlock()
-			return 0, p.o.EOFError
+			return 0, io.EOF
 		}
 
 		// Get buffer length
@@ -249,7 +232,7 @@ func (p *Piper) Write(i []byte) (n int, err error) {
 	p.m.Lock()
 	if p.closed {
 		p.m.Unlock()
-		return 0, p.o.EOFError
+		return 0, io.EOF
 	}
 	p.m.Unlock()
 

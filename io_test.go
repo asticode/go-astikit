@@ -157,7 +157,7 @@ func TestPiper(t *testing.T) {
 	}
 
 	// Piper should timeout on read if a read timeout is provided
-	p2 := NewPiper(PiperOptions{ReadTimeout: PiperReadTimeoutOptions{Duration: time.Millisecond}})
+	p2 := NewPiper(PiperOptions{ReadTimeout: time.Millisecond})
 	defer p2.Close()
 	ctx6, cancel6 := context.WithTimeout(context.Background(), time.Second)
 	defer cancel6()
@@ -169,26 +169,7 @@ func TestPiper(t *testing.T) {
 	if errCtx := ctx6.Err(); errors.Is(errCtx, context.DeadlineExceeded) {
 		t.Fatalf("expected no deadline exceeded error, got %+v", errCtx)
 	}
-	if !errors.Is(err, ErrPiperReadTimeout) {
-		t.Fatalf("expected ErrPiperReadTimeout error, got %+v", err)
-	}
-
-	// Piper should return the proper custom errors
-	p3 := NewPiper(PiperOptions{
-		EOFError: io.ErrClosedPipe,
-		ReadTimeout: PiperReadTimeoutOptions{
-			Duration: time.Millisecond,
-			Error:    io.ErrNoProgress,
-		},
-	})
-	defer p3.Close()
-	_, err = p3.Read(r)
-	if !errors.Is(err, io.ErrNoProgress) {
-		t.Fatalf("expected io.ErrNoProgress error, got %+v", err)
-	}
-	p3.Close()
-	_, err = p3.Read(r)
-	if !errors.Is(err, io.ErrClosedPipe) {
-		t.Fatalf("expected io.ErrClosedPipe error, got %+v", err)
+	if err != nil {
+		t.Fatalf("expected nil, got %+v", err)
 	}
 }
