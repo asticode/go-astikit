@@ -123,8 +123,8 @@ func (w *WriterAdapter) write(i []byte) {
 	}
 }
 
-// Piper doesn't block on writes. It will block on reads unless you provide a ReadTimeout
-// in which case it will return, after the provided timeout, if no read is available. When closing the
+// Piper doesn't block on writes. It will block on reads unless you provide a ReadTimeout in which case
+// it will return an optional error, after the provided timeout, if no read is available. When closing the
 // piper, it will interrupt any ongoing read/future writes and return io.EOF.
 // Piper doesn't handle multiple readers at the same time.
 type Piper struct {
@@ -136,7 +136,8 @@ type Piper struct {
 }
 
 type PiperOptions struct {
-	ReadTimeout time.Duration
+	ReadTimeout      time.Duration
+	ReadTimeoutError error
 }
 
 func NewPiper(o PiperOptions) *Piper {
@@ -191,7 +192,7 @@ func (p *Piper) Read(i []byte) (n int, err error) {
 	for {
 		// Check context
 		if ctx != nil && ctx.Err() != nil {
-			return 0, nil
+			return 0, p.o.ReadTimeoutError
 		}
 
 		// Lock

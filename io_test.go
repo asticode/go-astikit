@@ -157,7 +157,11 @@ func TestPiper(t *testing.T) {
 	}
 
 	// Piper should timeout on read if a read timeout is provided
-	p2 := NewPiper(PiperOptions{ReadTimeout: time.Millisecond})
+	e1 := errors.New("1")
+	p2 := NewPiper(PiperOptions{
+		ReadTimeout:      time.Millisecond,
+		ReadTimeoutError: e1,
+	})
 	defer p2.Close()
 	ctx6, cancel6 := context.WithTimeout(context.Background(), time.Second)
 	defer cancel6()
@@ -169,7 +173,7 @@ func TestPiper(t *testing.T) {
 	if errCtx := ctx6.Err(); errors.Is(errCtx, context.DeadlineExceeded) {
 		t.Fatalf("expected no deadline exceeded error, got %+v", errCtx)
 	}
-	if err != nil {
-		t.Fatalf("expected nil, got %+v", err)
+	if !errors.Is(err, e1) {
+		t.Fatalf("expected %s, got %s", e1, err)
 	}
 }
