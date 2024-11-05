@@ -4,7 +4,6 @@ package astikit
 
 import (
 	"bytes"
-	"os"
 	"testing"
 )
 
@@ -13,42 +12,60 @@ func TestSystemVIpcKey(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error, got none")
 	}
-	f, err := os.CreateTemp(t.TempDir(), "")
-	if err != nil {
-		t.Fatalf("expected no error, got %s", err)
-	}
-	defer f.Close()
 	if _, err = NewSystemVIpcKey(1, "testdata/ipc/f"); err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
 }
 
 func TestSemaphore(t *testing.T) {
-	s, err := NewSemaphore(1, IpcFlagCreat|IpcFlagExcl|0666)
+	s1, err := CreateSemaphore(1, IpcFlagCreat|IpcFlagExcl|0666)
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
-	defer s.Close()
-	if e, g := 1, s.Key(); e != g {
+	defer s1.Close()
+	if e, g := 1, s1.Key(); e != g {
 		t.Fatalf("expected %v, got %v", e, g)
 	}
-	if err = s.Lock(); err != nil {
+	if err = s1.Lock(); err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
-	if err = s.Unlock(); err != nil {
+	if err = s1.Unlock(); err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
-	if err = s.Close(); err != nil {
+	s2, err := OpenSemaphore(1)
+	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
-	if err = s.Lock(); err == nil {
+	defer s2.Close()
+	if e, g := 1, s2.Key(); e != g {
+		t.Fatalf("expected %v, got %v", e, g)
+	}
+	if err = s2.Lock(); err != nil {
+		t.Fatalf("expected no error, got %s", err)
+	}
+	if err = s2.Unlock(); err != nil {
+		t.Fatalf("expected no error, got %s", err)
+	}
+	if err = s1.Close(); err != nil {
+		t.Fatalf("expected no error, got %s", err)
+	}
+	if err = s1.Lock(); err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if err = s.Unlock(); err == nil {
+	if err = s1.Unlock(); err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if err = s.Close(); err != nil {
+	if err = s1.Close(); err != nil {
 		t.Fatalf("expected no error, got %s", err)
+	}
+	if err = s2.Close(); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err = s2.Lock(); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err = s2.Unlock(); err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }
 
@@ -88,5 +105,35 @@ func TestSharedMemory(t *testing.T) {
 	}
 	if err = sm1.Close(); err != nil {
 		t.Fatalf("expected no error, got %s", err)
+	}
+}
+
+func TestSemaphoredSharedMemory(t *testing.T) {
+	w := NewSemaphoredSharedMemoryWriter("test")
+	defer w.Close()
+	r := NewSemaphoredSharedMemoryReader()
+	defer r.Close()
+
+	b1 := []byte("test")
+	ro, err := w.WriteBytes(b1)
+	if err != nil {
+		t.Fatalf("expected no error, got %s", err)
+	}
+	if e, g := 4, ro.Size; e != g {
+		t.Fatalf("expected %d, got %d", e, g)
+	}
+	if ro.SemaphoreKey == 0 {
+		t.Fatalf("expected > 0, got 0")
+	}
+	if ro.SharedMemoryKey == 0 {
+		t.Fatalf("expected > 0, got 0")
+	}
+
+	b2, err := r.ReadBytes(ro)
+	if err != nil {
+		t.Fatalf("expected no error, got %s", err)
+	}
+	if !bytes.Equal(b1, b2) {
+		t.Fatalf("expected %s, got %s", b1, b2)
 	}
 }
