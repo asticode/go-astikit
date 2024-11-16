@@ -7,16 +7,6 @@ import (
 	"testing"
 )
 
-func TestSystemVIpcKey(t *testing.T) {
-	_, err := NewSystemVIpcKey(1, "testdata/ipc/invalid")
-	if err == nil {
-		t.Fatal("expected an error, got none")
-	}
-	if _, err = NewSystemVIpcKey(1, "testdata/ipc/f"); err != nil {
-		t.Fatalf("expected no error, got %s", err)
-	}
-}
-
 func TestSemaphore(t *testing.T) {
 	s1, err := CreateSemaphore(1, IpcFlagCreat|IpcFlagExcl|0666)
 	if err != nil {
@@ -109,31 +99,85 @@ func TestSharedMemory(t *testing.T) {
 }
 
 func TestSemaphoredSharedMemory(t *testing.T) {
-	w := NewSemaphoredSharedMemoryWriter("test")
-	defer w.Close()
-	r := NewSemaphoredSharedMemoryReader()
-	defer r.Close()
+	w1 := NewSemaphoredSharedMemoryWriter()
+	defer w1.Close()
+	w2 := NewSemaphoredSharedMemoryWriter()
+	defer w2.Close()
+	r1 := NewSemaphoredSharedMemoryReader()
+	defer r1.Close()
+	r2 := NewSemaphoredSharedMemoryReader()
+	defer r2.Close()
 
 	b1 := []byte("test")
-	ro, err := w.WriteBytes(b1)
-	if err != nil {
-		t.Fatalf("expected no error, got %s", err)
-	}
-	if e, g := 4, ro.Size; e != g {
-		t.Fatalf("expected %d, got %d", e, g)
-	}
-	if ro.SemaphoreKey == 0 {
-		t.Fatalf("expected > 0, got 0")
-	}
-	if ro.SharedMemoryKey == 0 {
-		t.Fatalf("expected > 0, got 0")
+	semKeys := make(map[int]bool)
+	shmAts := make(map[*SemaphoredSharedMemoryWriter]int64)
+	shmKeys := make(map[int]bool)
+	for _, v := range []struct {
+		r *SemaphoredSharedMemoryReader
+		w *SemaphoredSharedMemoryWriter
+	}{
+		{
+			r: r1,
+			w: w1,
+		},
+		{
+			r: r2,
+			w: w2,
+		},
+	} {
+		ro, err := v.w.WriteBytes(b1)
+		if err != nil {
+			t.Fatalf("expected no error, got %s", err)
+		}
+		if e, g := 4, ro.Size; e != g {
+			t.Fatalf("expected %d, got %d", e, g)
+		}
+		if ro.SemaphoreKey == 0 {
+			t.Fatalf("expected > 0, got 0")
+		}
+		if _, ok := semKeys[ro.SemaphoreKey]; ok {
+			t.Fatal("expected false, got true")
+		}
+		semKeys[ro.SemaphoreKey] = true
+		if ro.SharedMemoryAt == 0 {
+			t.Fatalf("expected > 0, got 0")
+		}
+		shmAts[v.w] = ro.SharedMemoryAt
+		if ro.SharedMemoryKey == 0 {
+			t.Fatalf("expected > 0, got 0")
+		}
+		if _, ok := shmKeys[ro.SharedMemoryKey]; ok {
+			t.Fatal("expected false, got true")
+		}
+		shmKeys[ro.SharedMemoryKey] = true
+
+		b, err := v.r.ReadBytes(ro)
+		if err != nil {
+			t.Fatalf("expected no error, got %s", err)
+		}
+		if !bytes.Equal(b1, b) {
+			t.Fatalf("expected %s, got %s", b1, b)
+		}
 	}
 
-	b2, err := r.ReadBytes(ro)
+	b3 := append(b1, []byte("1")...)
+	ro, err := w1.WriteBytes(b3)
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
-	if !bytes.Equal(b1, b2) {
-		t.Fatalf("expected %s, got %s", b1, b2)
+	at, ok := shmAts[w1]
+	if !ok {
+		t.Fatal("expected false, got true")
+	}
+	if ne, g := at, ro.SharedMemoryAt; ne == g {
+		t.Fatalf("didn't expect %d, got %d", ne, g)
+	}
+
+	b4, err := r1.ReadBytes(ro)
+	if err != nil {
+		t.Fatalf("expected no error, got %s", err)
+	}
+	if !bytes.Equal(b3, b4) {
+		t.Fatalf("expected %s, got %s", b3, b4)
 	}
 }

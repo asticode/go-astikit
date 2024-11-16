@@ -10,15 +10,7 @@ package astikit
 //#include <sys/types.h>
 /*
 
-int astikit_ftok(char* path, int project_id, int* errno_ptr) {
-	int key = ftok(path, project_id);
-	if (key < 0) {
-		*errno_ptr = errno;
-	}
-	return key;
-}
-
-int astikit_sem_get(int key, int flags, int* errno_ptr) {
+int astikit_sem_get(key_t key, int flags, int* errno_ptr) {
 	int id = semget(key, 1, flags);
 	if (id < 0) {
 		*errno_ptr = errno;
@@ -72,7 +64,7 @@ int astikit_sem_unlock(int id, int* errno_ptr) {
 	return ret;
 }
 
-int astikit_shm_get(int key, int size, int flags, int* errno_ptr) {
+int astikit_shm_get(key_t key, int size, int flags, int* errno_ptr) {
 	int id = shmget(key, size, flags);
 	if (id < 0) {
 		*errno_ptr = errno;
@@ -110,25 +102,11 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 )
-
-func NewSystemVIpcKey(projectID int, path string) (int, error) {
-	// Get c path
-	cpath := C.CString(path)
-	defer C.free(unsafe.Pointer(cpath))
-
-	// Get key
-	var errno C.int
-	key := C.astikit_ftok(cpath, C.int(projectID), &errno)
-	if key < 0 {
-		return 0, fmt.Errorf("astikit: ftok failed: %s", syscall.Errno(errno))
-	}
-	return int(key), nil
-}
 
 const (
 	IpcFlagCreat = int(C.IPC_CREAT)
@@ -145,7 +123,7 @@ func newSemaphore(key, flags int) (*Semaphore, error) {
 	var errno C.int
 	id := C.astikit_sem_get(C.int(key), C.int(flags), &errno)
 	if id < 0 {
-		return nil, fmt.Errorf("astikit: sem_get failed: %s", syscall.Errno(errno))
+		return nil, fmt.Errorf("astikit: sem_get failed: %w", syscall.Errno(errno))
 	}
 	return &Semaphore{
 		id:  id,
@@ -170,7 +148,7 @@ func (s *Semaphore) Close() error {
 	// Close
 	var errno C.int
 	if ret := C.astikit_sem_close(s.id, &errno); ret < 0 {
-		return fmt.Errorf("astikit: sem_close failed: %s", syscall.Errno(errno))
+		return fmt.Errorf("astikit: sem_close failed: %w", syscall.Errno(errno))
 	}
 
 	// Update
@@ -189,7 +167,7 @@ func (s *Semaphore) Lock() error {
 	var errno C.int
 	ret := C.astikit_sem_lock(s.id, &errno)
 	if ret < 0 {
-		return fmt.Errorf("astikit: sem_lock failed: %s", syscall.Errno(errno))
+		return fmt.Errorf("astikit: sem_lock failed: %w", syscall.Errno(errno))
 	}
 	return nil
 }
@@ -204,7 +182,7 @@ func (s *Semaphore) Unlock() error {
 	var errno C.int
 	ret := C.astikit_sem_unlock(s.id, &errno)
 	if ret < 0 {
-		return fmt.Errorf("astikit: sem_unlock failed: %s", syscall.Errno(errno))
+		return fmt.Errorf("astikit: sem_unlock failed: %w", syscall.Errno(errno))
 	}
 	return nil
 }
@@ -224,7 +202,7 @@ func newSharedMemory(key, size, flags int) (w *SharedMemory, err error) {
 	var errno C.int
 	id := C.astikit_shm_get(C.int(key), C.int(size), C.int(flags), &errno)
 	if id < 0 {
-		err = fmt.Errorf("astikit: shm_get failed: %s", syscall.Errno(errno))
+		err = fmt.Errorf("astikit: shm_get failed: %w", syscall.Errno(errno))
 		return
 	}
 
@@ -244,7 +222,7 @@ func newSharedMemory(key, size, flags int) (w *SharedMemory, err error) {
 	// Attach
 	addr := C.astikit_shm_at(C.int(id), &errno)
 	if addr == nil {
-		err = fmt.Errorf("astikit: shm_at failed: %s", syscall.Errno(errno))
+		err = fmt.Errorf("astikit: shm_at failed: %w", syscall.Errno(errno))
 		return
 	}
 
@@ -270,7 +248,7 @@ func (w *SharedMemory) Close() error {
 	// Close
 	var errno C.int
 	if ret := C.astikit_shm_close(w.id, w.addr, &errno); ret < 0 {
-		return fmt.Errorf("astikit: shm_close failed: %s", syscall.Errno(errno))
+		return fmt.Errorf("astikit: shm_close failed: %w", syscall.Errno(errno))
 	}
 
 	// Update
@@ -319,34 +297,26 @@ func (w *SharedMemory) ReadBytes(size int) ([]byte, error) {
 }
 
 type SemaphoredSharedMemoryWriter struct {
-	id      string
 	m       sync.Mutex // Locks write operations
 	sem     *Semaphore
-	semPath string
 	shm     *SharedMemory
-	shmPath string
+	shmAt   int64
 	shmSize int
 }
 
-func NewSemaphoredSharedMemoryWriter(id string) *SemaphoredSharedMemoryWriter {
-	return &SemaphoredSharedMemoryWriter{id: id}
+func NewSemaphoredSharedMemoryWriter() *SemaphoredSharedMemoryWriter {
+	return &SemaphoredSharedMemoryWriter{}
 }
 
 func (w *SemaphoredSharedMemoryWriter) closeSemaphore() {
 	if w.sem != nil {
 		w.sem.Close()
 	}
-	if w.semPath != "" {
-		os.RemoveAll(w.semPath)
-	}
 }
 
 func (w *SemaphoredSharedMemoryWriter) closeSharedMemory() {
 	if w.shm != nil {
 		w.shm.Close()
-	}
-	if w.shmPath != "" {
-		os.RemoveAll(w.shmPath)
 	}
 }
 
@@ -355,33 +325,22 @@ func (w *SemaphoredSharedMemoryWriter) Close() {
 	w.closeSharedMemory()
 }
 
-func (w *SemaphoredSharedMemoryWriter) newSystemVIpcKey(id string) (key int, path string, err error) {
-	// Make sure to clean in case of error
-	var f *os.File
-	defer func() {
-		if err != nil {
-			if f != nil {
-				os.RemoveAll(f.Name())
-			}
+func (w *SemaphoredSharedMemoryWriter) generateRandomKey(f func(key int) error) error {
+	try := 0
+	for {
+		key := int(int32(randSrc.Int63()))
+		if key == int(C.IPC_PRIVATE) {
+			continue
 		}
-	}()
-
-	// Create temp file
-	if f, err = os.CreateTemp("", w.id+id+"*"); err != nil {
-		err = fmt.Errorf("astikit: creating temporary file failed: %w", err)
-		return
+		err := f(key)
+		if errors.Is(err, syscall.EEXIST) {
+			if try++; try < 10000 {
+				continue
+			}
+			return errors.New("astikit: max tries reached")
+		}
+		return err
 	}
-	f.Close() //nolint: errcheck
-
-	// Update path
-	path = f.Name()
-
-	// Create key
-	if key, err = NewSystemVIpcKey(1, path); err != nil {
-		err = fmt.Errorf("astikit: creating system V ipc key failed: %w", err)
-		return
-	}
-	return
 }
 
 func (w *SemaphoredSharedMemoryWriter) Write(src unsafe.Pointer, size int) (ro *SemaphoredSharedMemoryReadOptions, err error) {
@@ -389,52 +348,50 @@ func (w *SemaphoredSharedMemoryWriter) Write(src unsafe.Pointer, size int) (ro *
 	w.m.Lock()
 	defer w.m.Unlock()
 
-	// Shared memory has not been created or write size has changed, we need to allocate a new shared memory segment
-	if w.shm == nil || size != w.shmSize {
+	// Shared memory has not been created or previous shared memory segment is too small,
+	// we need to allocate a new shared memory segment
+	if w.shm == nil || size > w.shmSize {
 		// Close previous shared memory
 		w.closeSharedMemory()
 
-		// Create shared memory key
-		var shmKey int
-		var shmPath string
-		if shmKey, shmPath, err = w.newSystemVIpcKey("shm"); err != nil {
-			err = fmt.Errorf("astikit: creating shared memory key failed: %w", err)
+		// Generate random key
+		if err = w.generateRandomKey(func(key int) (err error) {
+			// Create shared memory
+			var shm *SharedMemory
+			if shm, err = CreateSharedMemory(key, size, IpcFlagCreat|IpcFlagExcl|0666); err != nil {
+				err = fmt.Errorf("astikit: creating shared memory failed: %w", err)
+				return
+			}
+
+			// Store attributes
+			w.shm = shm
+			w.shmAt = time.Now().UnixNano()
+			w.shmSize = size
+			return
+		}); err != nil {
+			err = fmt.Errorf("astikit: generating random key failed: %w", err)
 			return
 		}
-
-		// Create shared memory
-		var shm *SharedMemory
-		if shm, err = CreateSharedMemory(shmKey, size, IpcFlagCreat|IpcFlagExcl|0666); err != nil {
-			err = fmt.Errorf("astikit: creating shared memory failed: %w", err)
-			return
-		}
-
-		// Store attributes
-		w.shm = shm
-		w.shmPath = shmPath
-		w.shmSize = size
 	}
 
 	// Semaphore has not been created
 	if w.sem == nil {
-		// Create semaphore key
-		var semKey int
-		var semPath string
-		if semKey, semPath, err = w.newSystemVIpcKey("sem"); err != nil {
-			err = fmt.Errorf("astikit: created semaphore key failed: %w", err)
+		// Generate random key
+		if err = w.generateRandomKey(func(key int) (err error) {
+			// Create semaphore
+			var sem *Semaphore
+			if sem, err = CreateSemaphore(key, IpcFlagCreat|IpcFlagExcl|0666); err != nil {
+				err = fmt.Errorf("astikit: creating semaphore failed: %w", err)
+				return
+			}
+
+			// Store attributes
+			w.sem = sem
+			return
+		}); err != nil {
+			err = fmt.Errorf("astikit: generating random key failed: %w", err)
 			return
 		}
-
-		// Create semaphore
-		var sem *Semaphore
-		if sem, err = CreateSemaphore(semKey, IpcFlagCreat|IpcFlagExcl|0666); err != nil {
-			err = fmt.Errorf("astikit: creating semaphore failed: %w", err)
-			return
-		}
-
-		// Store attributes
-		w.sem = sem
-		w.semPath = semPath
 	}
 
 	// Lock
@@ -458,6 +415,7 @@ func (w *SemaphoredSharedMemoryWriter) Write(src unsafe.Pointer, size int) (ro *
 	// Create read options
 	ro = &SemaphoredSharedMemoryReadOptions{
 		SemaphoreKey:    w.sem.Key(),
+		SharedMemoryAt:  w.shmAt,
 		SharedMemoryKey: w.shm.Key(),
 		Size:            size,
 	}
@@ -474,9 +432,10 @@ func (w *SemaphoredSharedMemoryWriter) WriteBytes(b []byte) (*SemaphoredSharedMe
 }
 
 type SemaphoredSharedMemoryReader struct {
-	m   sync.Mutex // Locks read operations
-	sem *Semaphore
-	shm *SharedMemory
+	m     sync.Mutex // Locks read operations
+	sem   *Semaphore
+	shm   *SharedMemory
+	shmAt int64
 }
 
 func NewSemaphoredSharedMemoryReader() *SemaphoredSharedMemoryReader {
@@ -502,6 +461,7 @@ func (r *SemaphoredSharedMemoryReader) Close() {
 
 type SemaphoredSharedMemoryReadOptions struct {
 	SemaphoreKey    int
+	SharedMemoryAt  int64
 	SharedMemoryKey int
 	Size            int
 }
@@ -511,8 +471,8 @@ func (r *SemaphoredSharedMemoryReader) ReadBytes(o *SemaphoredSharedMemoryReadOp
 	r.m.Lock()
 	defer r.m.Unlock()
 
-	// Shared memory is not opened or key has changed
-	if r.shm == nil || r.shm.Key() != o.SharedMemoryKey {
+	// Shared memory is not opened or shared memory has changed
+	if r.shm == nil || r.shm.Key() != o.SharedMemoryKey || r.shmAt != o.SharedMemoryAt {
 		// Close previous shared memory
 		r.closeSharedMemory()
 
@@ -525,10 +485,11 @@ func (r *SemaphoredSharedMemoryReader) ReadBytes(o *SemaphoredSharedMemoryReadOp
 
 		// Store attributes
 		r.shm = shm
+		r.shmAt = o.SharedMemoryAt
 	}
 
-	// Semaphore is not opened or key has changed
-	if r.sem == nil || r.sem.Key() != o.SemaphoreKey {
+	// Semaphore is not opened
+	if r.sem == nil {
 		// Close previous semaphore
 		r.closeSemaphore()
 
