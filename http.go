@@ -198,6 +198,7 @@ type HTTPSendJSONOptions struct {
 	Host           string
 	Method         string
 	StatusCodeFunc HTTPSenderStatusCodeFunc
+	Timeout        time.Duration
 	URL            string
 }
 
@@ -231,9 +232,15 @@ func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
 		req.Header.Set(k, v)
 	}
 
+	// Get send func
+	sendFunc := func() (*http.Response, error) { return s.Send(req) }
+	if o.Timeout > 0 {
+		sendFunc = func() (*http.Response, error) { return s.SendWithTimeout(req, o.Timeout) }
+	}
+
 	// Send request
 	var resp *http.Response
-	if resp, err = s.Send(req); err != nil {
+	if resp, err = sendFunc(); err != nil {
 		err = fmt.Errorf("astikit: sending request failed: %w", err)
 		return
 	}

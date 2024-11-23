@@ -102,19 +102,6 @@ func TestHTTPSender(t *testing.T) {
 		t.Fatalf("expected %v, got %v", e, c)
 	}
 
-	// Timeout
-	s = NewHTTPSender(HTTPSenderOptions{
-		Client: mockedHTTPClient(func(req *http.Request) (resp *http.Response, err error) {
-			ctx, cancel := context.WithCancel(req.Context())
-			defer cancel()
-			<-ctx.Done()
-			return
-		}),
-	})
-	if _, err := s.SendWithTimeout(&http.Request{}, time.Millisecond); err == nil {
-		t.Fatal("expected error, got nil")
-	}
-
 	// JSON
 	var (
 		ebe = "error"
@@ -201,6 +188,21 @@ func TestHTTPSender(t *testing.T) {
 	}
 	if gbo != ebo {
 		t.Fatalf("expected %s, go %s", ebo, gbo)
+	}
+
+	// Timeout
+	timeoutMockedHTTPClient := mockedHTTPClient(func(req *http.Request) (resp *http.Response, err error) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		<-ctx.Done()
+		return
+	})
+	s = NewHTTPSender(HTTPSenderOptions{Client: timeoutMockedHTTPClient})
+	if _, err := s.SendWithTimeout(&http.Request{}, time.Millisecond); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err := s.SendJSON(HTTPSendJSONOptions{Timeout: time.Millisecond}); err == nil {
+		t.Fatal("expected error, got nil")
 	}
 }
 
