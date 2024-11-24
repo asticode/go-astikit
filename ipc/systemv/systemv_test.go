@@ -1,25 +1,25 @@
 //go:build !windows
 
-package astikit
+package astisystemv
 
 import (
 	"bytes"
 	"testing"
 )
 
-func TestNewSystemVKey(t *testing.T) {
-	_, err := NewSystemVKey(1, "testdata/ipc/invalid")
+func TestNewKey(t *testing.T) {
+	_, err := NewKey(1, "../../testdata/ipc/invalid")
 	if err == nil {
 		t.Fatal("expected an error, got none")
 	}
-	if _, err = NewSystemVKey(1, "testdata/ipc/f"); err != nil {
+	if _, err = NewKey(1, "../../testdata/ipc/f"); err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
 }
 
-func TestSystemVSemaphore(t *testing.T) {
+func TestSemaphore(t *testing.T) {
 	const key = 1
-	s1, err := CreateSystemVSemaphore(key, IpcCreate|IpcExclusive|0666)
+	s1, err := CreateSemaphore(key, IpcCreate|IpcExclusive|0666)
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
@@ -33,7 +33,7 @@ func TestSystemVSemaphore(t *testing.T) {
 	if err = s1.Unlock(); err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
-	s2, err := OpenSystemVSemaphore(key)
+	s2, err := OpenSemaphore(key)
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
@@ -70,9 +70,9 @@ func TestSystemVSemaphore(t *testing.T) {
 	}
 }
 
-func TestSystemVSharedMemory(t *testing.T) {
+func TestSharedMemory(t *testing.T) {
 	const key = 1
-	sm1, err := CreateSystemVSharedMemory(key, 10, IpcCreate|IpcExclusive|0666)
+	sm1, err := CreateSharedMemory(key, 10, IpcCreate|IpcExclusive|0666)
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
@@ -87,7 +87,7 @@ func TestSystemVSharedMemory(t *testing.T) {
 	if err := sm1.WriteBytes(b1); err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
-	sm2, err := OpenSystemVSharedMemory(key)
+	sm2, err := OpenSharedMemory(key)
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
@@ -110,23 +110,23 @@ func TestSystemVSharedMemory(t *testing.T) {
 	}
 }
 
-func TestSystemVSemaphoredSharedMemory(t *testing.T) {
-	w1 := NewSystemVSemaphoredSharedMemoryWriter()
+func TestSemaphoredSharedMemory(t *testing.T) {
+	w1 := NewSemaphoredSharedMemoryWriter()
 	defer w1.Close()
-	w2 := NewSystemVSemaphoredSharedMemoryWriter()
+	w2 := NewSemaphoredSharedMemoryWriter()
 	defer w2.Close()
-	r1 := NewSystemVSemaphoredSharedMemoryReader()
+	r1 := NewSemaphoredSharedMemoryReader()
 	defer r1.Close()
-	r2 := NewSystemVSemaphoredSharedMemoryReader()
+	r2 := NewSemaphoredSharedMemoryReader()
 	defer r2.Close()
 
 	b1 := []byte("test")
 	semKeys := make(map[int]bool)
-	shmAts := make(map[*SystemVSemaphoredSharedMemoryWriter]int64)
+	shmAts := make(map[*SemaphoredSharedMemoryWriter]int64)
 	shmKeys := make(map[int]bool)
 	for _, v := range []struct {
-		r *SystemVSemaphoredSharedMemoryReader
-		w *SystemVSemaphoredSharedMemoryWriter
+		r *SemaphoredSharedMemoryReader
+		w *SemaphoredSharedMemoryWriter
 	}{
 		{
 			r: r1,

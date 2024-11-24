@@ -1,14 +1,14 @@
 //go:build !windows
 
-package astikit
+package astiposix
 
 import (
 	"bytes"
 	"testing"
 )
 
-func TestPosixSharedMemory(t *testing.T) {
-	sm1, err := CreatePosixSharedMemory("/test", 8)
+func TestSharedMemory(t *testing.T) {
+	sm1, err := CreateSharedMemory("/test", 8)
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
@@ -22,7 +22,7 @@ func TestPosixSharedMemory(t *testing.T) {
 	if e, g := "test", sm1.Name(); e != g {
 		t.Fatalf("expected %v, got %v", e, g)
 	}
-	if _, err = CreatePosixSharedMemory("/test", 8); err == nil {
+	if _, err = CreateSharedMemory("/test", 8); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 
@@ -31,7 +31,7 @@ func TestPosixSharedMemory(t *testing.T) {
 		t.Fatalf("expected no error, got %s", err)
 	}
 
-	sm2, err := OpenPosixSharedMemory("test")
+	sm2, err := OpenSharedMemory("test")
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
@@ -65,10 +65,10 @@ func TestPosixSharedMemory(t *testing.T) {
 	}
 }
 
-func TestPosixVariableSizeSharedMemory(t *testing.T) {
-	w := NewPosixVariableSizeSharedMemoryWriter("test-1")
+func TestVariableSizeSharedMemory(t *testing.T) {
+	w := NewVariableSizeSharedMemoryWriter("test-1")
 	defer w.Close()
-	r := NewPosixVariableSizeSharedMemoryReader()
+	r := NewVariableSizeSharedMemoryReader()
 	defer r.Close()
 
 	b1 := []byte("test")

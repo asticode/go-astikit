@@ -1,10 +1,10 @@
 //go:build !windows
 
-package astikit
+package astiposix
 
 //#include <stdlib.h>
 //#include <string.h>
-//#include "ipc_posix.h"
+//#include "posix.h"
 import "C"
 import (
 	"errors"
@@ -17,7 +17,7 @@ import (
 	"unsafe"
 )
 
-type PosixSharedMemory struct {
+type SharedMemory struct {
 	addr   unsafe.Pointer
 	cname  string
 	fd     *C.int
@@ -26,9 +26,9 @@ type PosixSharedMemory struct {
 	unlink bool
 }
 
-func newPosixSharedMemory(name string, flags, mode int, cb func(shm *PosixSharedMemory) error) (shm *PosixSharedMemory, err error) {
+func newSharedMemory(name string, flags, mode int, cb func(shm *SharedMemory) error) (shm *SharedMemory, err error) {
 	// Create shared memory
-	shm = &PosixSharedMemory{name: name}
+	shm = &SharedMemory{name: name}
 
 	// To have a similar behavior with python, we need to handle the leading slash the same way:
 	//   - make sure the "public" name has no leading "/"
@@ -84,8 +84,8 @@ func newPosixSharedMemory(name string, flags, mode int, cb func(shm *PosixShared
 	return
 }
 
-func CreatePosixSharedMemory(name string, size int) (*PosixSharedMemory, error) {
-	return newPosixSharedMemory(name, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600, func(shm *PosixSharedMemory) (err error) {
+func CreateSharedMemory(name string, size int) (*SharedMemory, error) {
+	return newSharedMemory(name, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600, func(shm *SharedMemory) (err error) {
 		// Shared memory needs to be unlink on close
 		shm.unlink = true
 
@@ -99,11 +99,11 @@ func CreatePosixSharedMemory(name string, size int) (*PosixSharedMemory, error) 
 	})
 }
 
-func OpenPosixSharedMemory(name string) (*PosixSharedMemory, error) {
-	return newPosixSharedMemory(name, os.O_RDWR, 0600, nil)
+func OpenSharedMemory(name string) (*SharedMemory, error) {
+	return newSharedMemory(name, os.O_RDWR, 0600, nil)
 }
 
-func (shm *PosixSharedMemory) Close() error {
+func (shm *SharedMemory) Close() error {
 	// Unlink
 	if shm.unlink {
 		// Get c name
@@ -138,7 +138,7 @@ func (shm *PosixSharedMemory) Close() error {
 	return nil
 }
 
-func (shm *PosixSharedMemory) Write(src unsafe.Pointer, size int) error {
+func (shm *SharedMemory) Write(src unsafe.Pointer, size int) error {
 	// Unmapped
 	if shm.addr == nil {
 		return errors.New("astikit: shared memory is unmapped")
@@ -149,7 +149,7 @@ func (shm *PosixSharedMemory) Write(src unsafe.Pointer, size int) error {
 	return nil
 }
 
-func (shm *PosixSharedMemory) WriteBytes(b []byte) error {
+func (shm *SharedMemory) WriteBytes(b []byte) error {
 	// Get c bytes
 	cb := C.CBytes(b)
 	defer C.free(cb)
@@ -158,7 +158,7 @@ func (shm *PosixSharedMemory) WriteBytes(b []byte) error {
 	return shm.Write(cb, len(b))
 }
 
-func (shm *PosixSharedMemory) ReadBytes(size int) ([]byte, error) {
+func (shm *SharedMemory) ReadBytes(size int) ([]byte, error) {
 	// Unmapped
 	if shm.addr == nil {
 		return nil, errors.New("astikit: shared memory is unmapped")
@@ -168,39 +168,39 @@ func (shm *PosixSharedMemory) ReadBytes(size int) ([]byte, error) {
 	return C.GoBytes(shm.addr, C.int(size)), nil
 }
 
-func (shm *PosixSharedMemory) Name() string {
+func (shm *SharedMemory) Name() string {
 	return shm.name
 }
 
-func (shm *PosixSharedMemory) Size() int {
+func (shm *SharedMemory) Size() int {
 	return shm.size
 }
 
-func (shm *PosixSharedMemory) Addr() unsafe.Pointer {
+func (shm *SharedMemory) Addr() unsafe.Pointer {
 	return shm.addr
 }
 
-type PosixVariableSizeSharedMemoryWriter struct {
+type VariableSizeSharedMemoryWriter struct {
 	m      sync.Mutex // Locks write operations
 	prefix string
-	shm    *PosixSharedMemory
+	shm    *SharedMemory
 }
 
-func NewPosixVariableSizeSharedMemoryWriter(prefix string) *PosixVariableSizeSharedMemoryWriter {
-	return &PosixVariableSizeSharedMemoryWriter{prefix: prefix}
+func NewVariableSizeSharedMemoryWriter(prefix string) *VariableSizeSharedMemoryWriter {
+	return &VariableSizeSharedMemoryWriter{prefix: prefix}
 }
 
-func (w *PosixVariableSizeSharedMemoryWriter) closeSharedMemory() {
+func (w *VariableSizeSharedMemoryWriter) closeSharedMemory() {
 	if w.shm != nil {
 		w.shm.Close()
 	}
 }
 
-func (w *PosixVariableSizeSharedMemoryWriter) Close() {
+func (w *VariableSizeSharedMemoryWriter) Close() {
 	w.closeSharedMemory()
 }
 
-func (w *PosixVariableSizeSharedMemoryWriter) Write(src unsafe.Pointer, size int) (ro PosixVariableSizeSharedMemoryReadOptions, err error) {
+func (w *VariableSizeSharedMemoryWriter) Write(src unsafe.Pointer, size int) (ro VariableSizeSharedMemoryReadOptions, err error) {
 	// Lock
 	w.m.Lock()
 	defer w.m.Unlock()
@@ -211,8 +211,8 @@ func (w *PosixVariableSizeSharedMemoryWriter) Write(src unsafe.Pointer, size int
 		w.closeSharedMemory()
 
 		// Create shared memory
-		var shm *PosixSharedMemory
-		if shm, err = CreatePosixSharedMemory(w.prefix+"-"+strconv.Itoa(size), size); err != nil {
+		var shm *SharedMemory
+		if shm, err = CreateSharedMemory(w.prefix+"-"+strconv.Itoa(size), size); err != nil {
 			err = fmt.Errorf("astikit: creating shared memory failed: %w", err)
 			return
 		}
@@ -228,14 +228,14 @@ func (w *PosixVariableSizeSharedMemoryWriter) Write(src unsafe.Pointer, size int
 	}
 
 	// Create read options
-	ro = PosixVariableSizeSharedMemoryReadOptions{
+	ro = VariableSizeSharedMemoryReadOptions{
 		Name: w.shm.Name(),
 		Size: size,
 	}
 	return
 }
 
-func (w *PosixVariableSizeSharedMemoryWriter) WriteBytes(b []byte) (PosixVariableSizeSharedMemoryReadOptions, error) {
+func (w *VariableSizeSharedMemoryWriter) WriteBytes(b []byte) (VariableSizeSharedMemoryReadOptions, error) {
 	// Get c bytes
 	cb := C.CBytes(b)
 	defer C.free(cb)
@@ -244,31 +244,31 @@ func (w *PosixVariableSizeSharedMemoryWriter) WriteBytes(b []byte) (PosixVariabl
 	return w.Write(cb, len(b))
 }
 
-type PosixVariableSizeSharedMemoryReader struct {
+type VariableSizeSharedMemoryReader struct {
 	m   sync.Mutex // Locks read operations
-	shm *PosixSharedMemory
+	shm *SharedMemory
 }
 
-func NewPosixVariableSizeSharedMemoryReader() *PosixVariableSizeSharedMemoryReader {
-	return &PosixVariableSizeSharedMemoryReader{}
+func NewVariableSizeSharedMemoryReader() *VariableSizeSharedMemoryReader {
+	return &VariableSizeSharedMemoryReader{}
 }
 
-func (r *PosixVariableSizeSharedMemoryReader) closeSharedMemory() {
+func (r *VariableSizeSharedMemoryReader) closeSharedMemory() {
 	if r.shm != nil {
 		r.shm.Close()
 	}
 }
 
-func (r *PosixVariableSizeSharedMemoryReader) Close() {
+func (r *VariableSizeSharedMemoryReader) Close() {
 	r.closeSharedMemory()
 }
 
-type PosixVariableSizeSharedMemoryReadOptions struct {
+type VariableSizeSharedMemoryReadOptions struct {
 	Name string `json:"name"`
 	Size int    `json:"size"`
 }
 
-func (r *PosixVariableSizeSharedMemoryReader) ReadBytes(o PosixVariableSizeSharedMemoryReadOptions) (b []byte, err error) {
+func (r *VariableSizeSharedMemoryReader) ReadBytes(o VariableSizeSharedMemoryReadOptions) (b []byte, err error) {
 	// Lock
 	r.m.Lock()
 	defer r.m.Unlock()
@@ -279,8 +279,8 @@ func (r *PosixVariableSizeSharedMemoryReader) ReadBytes(o PosixVariableSizeShare
 		r.closeSharedMemory()
 
 		// Open shared memory
-		var shm *PosixSharedMemory
-		if shm, err = OpenPosixSharedMemory(o.Name); err != nil {
+		var shm *SharedMemory
+		if shm, err = OpenSharedMemory(o.Name); err != nil {
 			err = fmt.Errorf("astikit: opening shared memory failed: %w", err)
 			return
 		}

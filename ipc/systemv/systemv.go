@@ -1,11 +1,11 @@
 //go:build !windows
 
-package astikit
+package astisystemv
 
 //#include <sys/shm.h>
 //#include <stdlib.h>
 //#include <string.h>
-//#include "ipc_systemv.h"
+//#include "systemv.h"
 import "C"
 import (
 	"errors"
@@ -14,9 +14,11 @@ import (
 	"syscall"
 	"time"
 	"unsafe"
+
+	"github.com/asticode/go-astikit"
 )
 
-func NewSystemVKey(projectID int, path string) (int, error) {
+func NewKey(projectID int, path string) (int, error) {
 	// Get c path
 	cpath := C.CString(path)
 	defer C.free(unsafe.Pointer(cpath))
@@ -35,33 +37,33 @@ const (
 	IpcExclusive = C.IPC_EXCL
 )
 
-type SystemVSemaphore struct {
+type Semaphore struct {
 	id  C.int
 	key int
 }
 
-func newSystemVSemaphore(key int, flags int) (*SystemVSemaphore, error) {
+func newSemaphore(key int, flags int) (*Semaphore, error) {
 	// Get id
 	var errno C.int
 	id := C.astikit_sem_get(C.int(key), C.int(flags), &errno)
 	if id < 0 {
 		return nil, fmt.Errorf("astikit: sem_get failed: %w", syscall.Errno(errno))
 	}
-	return &SystemVSemaphore{
+	return &Semaphore{
 		id:  id,
 		key: key,
 	}, nil
 }
 
-func CreateSystemVSemaphore(key, flags int) (*SystemVSemaphore, error) {
-	return newSystemVSemaphore(key, flags)
+func CreateSemaphore(key, flags int) (*Semaphore, error) {
+	return newSemaphore(key, flags)
 }
 
-func OpenSystemVSemaphore(key int) (*SystemVSemaphore, error) {
-	return newSystemVSemaphore(key, 0)
+func OpenSemaphore(key int) (*Semaphore, error) {
+	return newSemaphore(key, 0)
 }
 
-func (s *SystemVSemaphore) Close() error {
+func (s *Semaphore) Close() error {
 	// Already closed
 	if s.id == -1 {
 		return nil
@@ -79,7 +81,7 @@ func (s *SystemVSemaphore) Close() error {
 	return nil
 }
 
-func (s *SystemVSemaphore) Lock() error {
+func (s *Semaphore) Lock() error {
 	// Closed
 	if s.id == -1 {
 		return errors.New("astikit: semaphore is closed")
@@ -94,7 +96,7 @@ func (s *SystemVSemaphore) Lock() error {
 	return nil
 }
 
-func (s *SystemVSemaphore) Unlock() error {
+func (s *Semaphore) Unlock() error {
 	// Closed
 	if s.id == -1 {
 		return errors.New("astikit: semaphore is closed")
@@ -109,17 +111,17 @@ func (s *SystemVSemaphore) Unlock() error {
 	return nil
 }
 
-func (s *SystemVSemaphore) Key() int {
+func (s *Semaphore) Key() int {
 	return s.key
 }
 
-type SystemVSharedMemory struct {
+type SharedMemory struct {
 	addr unsafe.Pointer
 	id   C.int
 	key  int
 }
 
-func newSystemVSharedMemory(key, size int, flags int) (shm *SystemVSharedMemory, err error) {
+func newSharedMemory(key, size int, flags int) (shm *SharedMemory, err error) {
 	// Get id
 	var errno C.int
 	id := C.astikit_shm_get(C.int(key), C.int(size), C.int(flags), &errno)
@@ -129,7 +131,7 @@ func newSystemVSharedMemory(key, size int, flags int) (shm *SystemVSharedMemory,
 	}
 
 	// Create shared memory
-	shm = &SystemVSharedMemory{
+	shm = &SharedMemory{
 		id:  id,
 		key: key,
 	}
@@ -153,15 +155,15 @@ func newSystemVSharedMemory(key, size int, flags int) (shm *SystemVSharedMemory,
 	return
 }
 
-func CreateSystemVSharedMemory(key, size, flags int) (*SystemVSharedMemory, error) {
-	return newSystemVSharedMemory(key, size, flags)
+func CreateSharedMemory(key, size, flags int) (*SharedMemory, error) {
+	return newSharedMemory(key, size, flags)
 }
 
-func OpenSystemVSharedMemory(key int) (*SystemVSharedMemory, error) {
-	return newSystemVSharedMemory(key, 0, 0)
+func OpenSharedMemory(key int) (*SharedMemory, error) {
+	return newSharedMemory(key, 0, 0)
 }
 
-func (shm *SystemVSharedMemory) Close() error {
+func (shm *SharedMemory) Close() error {
 	// Already closed
 	if shm.id == -1 {
 		return nil
@@ -180,7 +182,7 @@ func (shm *SystemVSharedMemory) Close() error {
 	return nil
 }
 
-func (shm *SystemVSharedMemory) Write(src unsafe.Pointer, size int) error {
+func (shm *SharedMemory) Write(src unsafe.Pointer, size int) error {
 	// Closed
 	if shm.id == -1 {
 		return errors.New("astikit: shared memory is closed")
@@ -191,7 +193,7 @@ func (shm *SystemVSharedMemory) Write(src unsafe.Pointer, size int) error {
 	return nil
 }
 
-func (shm *SystemVSharedMemory) WriteBytes(b []byte) error {
+func (shm *SharedMemory) WriteBytes(b []byte) error {
 	// Get c bytes
 	cb := C.CBytes(b)
 	defer C.free(cb)
@@ -200,15 +202,15 @@ func (shm *SystemVSharedMemory) WriteBytes(b []byte) error {
 	return shm.Write(cb, len(b))
 }
 
-func (shm *SystemVSharedMemory) Addr() unsafe.Pointer {
+func (shm *SharedMemory) Addr() unsafe.Pointer {
 	return shm.addr
 }
 
-func (shm *SystemVSharedMemory) Key() int {
+func (shm *SharedMemory) Key() int {
 	return shm.key
 }
 
-func (shm *SystemVSharedMemory) ReadBytes(size int) ([]byte, error) {
+func (shm *SharedMemory) ReadBytes(size int) ([]byte, error) {
 	// Closed
 	if shm.id == -1 {
 		return nil, errors.New("astikit: shared memory is closed")
@@ -218,39 +220,39 @@ func (shm *SystemVSharedMemory) ReadBytes(size int) ([]byte, error) {
 	return C.GoBytes(shm.addr, C.int(size)), nil
 }
 
-type SystemVSemaphoredSharedMemoryWriter struct {
+type SemaphoredSharedMemoryWriter struct {
 	m       sync.Mutex // Locks write operations
-	sem     *SystemVSemaphore
-	shm     *SystemVSharedMemory
+	sem     *Semaphore
+	shm     *SharedMemory
 	shmAt   int64
 	shmSize int
 }
 
-func NewSystemVSemaphoredSharedMemoryWriter() *SystemVSemaphoredSharedMemoryWriter {
-	return &SystemVSemaphoredSharedMemoryWriter{}
+func NewSemaphoredSharedMemoryWriter() *SemaphoredSharedMemoryWriter {
+	return &SemaphoredSharedMemoryWriter{}
 }
 
-func (w *SystemVSemaphoredSharedMemoryWriter) closeSemaphore() {
+func (w *SemaphoredSharedMemoryWriter) closeSemaphore() {
 	if w.sem != nil {
 		w.sem.Close()
 	}
 }
 
-func (w *SystemVSemaphoredSharedMemoryWriter) closeSharedMemory() {
+func (w *SemaphoredSharedMemoryWriter) closeSharedMemory() {
 	if w.shm != nil {
 		w.shm.Close()
 	}
 }
 
-func (w *SystemVSemaphoredSharedMemoryWriter) Close() {
+func (w *SemaphoredSharedMemoryWriter) Close() {
 	w.closeSemaphore()
 	w.closeSharedMemory()
 }
 
-func (w *SystemVSemaphoredSharedMemoryWriter) generateRandomKey(f func(key int) error) error {
+func (w *SemaphoredSharedMemoryWriter) generateRandomKey(f func(key int) error) error {
 	try := 0
 	for {
-		key := int(int32(randSrc.Int63()))
+		key := int(int32(astikit.RandSource.Int63()))
 		if key == int(C.IPC_PRIVATE) {
 			continue
 		}
@@ -265,7 +267,7 @@ func (w *SystemVSemaphoredSharedMemoryWriter) generateRandomKey(f func(key int) 
 	}
 }
 
-func (w *SystemVSemaphoredSharedMemoryWriter) Write(src unsafe.Pointer, size int) (ro *SystemVSemaphoredSharedMemoryReadOptions, err error) {
+func (w *SemaphoredSharedMemoryWriter) Write(src unsafe.Pointer, size int) (ro *SemaphoredSharedMemoryReadOptions, err error) {
 	// Lock
 	w.m.Lock()
 	defer w.m.Unlock()
@@ -279,8 +281,8 @@ func (w *SystemVSemaphoredSharedMemoryWriter) Write(src unsafe.Pointer, size int
 		// Generate random key
 		if err = w.generateRandomKey(func(key int) (err error) {
 			// Create shared memory
-			var shm *SystemVSharedMemory
-			if shm, err = CreateSystemVSharedMemory(key, size, IpcCreate|IpcExclusive|0666); err != nil {
+			var shm *SharedMemory
+			if shm, err = CreateSharedMemory(key, size, IpcCreate|IpcExclusive|0666); err != nil {
 				err = fmt.Errorf("astikit: creating shared memory failed: %w", err)
 				return
 			}
@@ -301,8 +303,8 @@ func (w *SystemVSemaphoredSharedMemoryWriter) Write(src unsafe.Pointer, size int
 		// Generate random key
 		if err = w.generateRandomKey(func(key int) (err error) {
 			// Create semaphore
-			var sem *SystemVSemaphore
-			if sem, err = CreateSystemVSemaphore(key, IpcCreate|IpcExclusive|0666); err != nil {
+			var sem *Semaphore
+			if sem, err = CreateSemaphore(key, IpcCreate|IpcExclusive|0666); err != nil {
 				err = fmt.Errorf("astikit: creating semaphore failed: %w", err)
 				return
 			}
@@ -335,7 +337,7 @@ func (w *SystemVSemaphoredSharedMemoryWriter) Write(src unsafe.Pointer, size int
 	}
 
 	// Create read options
-	ro = &SystemVSemaphoredSharedMemoryReadOptions{
+	ro = &SemaphoredSharedMemoryReadOptions{
 		SemaphoreKey:    w.sem.Key(),
 		SharedMemoryAt:  w.shmAt,
 		SharedMemoryKey: w.shm.Key(),
@@ -344,7 +346,7 @@ func (w *SystemVSemaphoredSharedMemoryWriter) Write(src unsafe.Pointer, size int
 	return
 }
 
-func (w *SystemVSemaphoredSharedMemoryWriter) WriteBytes(b []byte) (*SystemVSemaphoredSharedMemoryReadOptions, error) {
+func (w *SemaphoredSharedMemoryWriter) WriteBytes(b []byte) (*SemaphoredSharedMemoryReadOptions, error) {
 	// Get c bytes
 	cb := C.CBytes(b)
 	defer C.free(cb)
@@ -353,42 +355,42 @@ func (w *SystemVSemaphoredSharedMemoryWriter) WriteBytes(b []byte) (*SystemVSema
 	return w.Write(cb, len(b))
 }
 
-type SystemVSemaphoredSharedMemoryReader struct {
+type SemaphoredSharedMemoryReader struct {
 	m     sync.Mutex // Locks read operations
-	sem   *SystemVSemaphore
-	shm   *SystemVSharedMemory
+	sem   *Semaphore
+	shm   *SharedMemory
 	shmAt int64
 }
 
-func NewSystemVSemaphoredSharedMemoryReader() *SystemVSemaphoredSharedMemoryReader {
-	return &SystemVSemaphoredSharedMemoryReader{}
+func NewSemaphoredSharedMemoryReader() *SemaphoredSharedMemoryReader {
+	return &SemaphoredSharedMemoryReader{}
 }
 
-func (r *SystemVSemaphoredSharedMemoryReader) closeSemaphore() {
+func (r *SemaphoredSharedMemoryReader) closeSemaphore() {
 	if r.sem != nil {
 		r.sem.Close()
 	}
 }
 
-func (r *SystemVSemaphoredSharedMemoryReader) closeSharedMemory() {
+func (r *SemaphoredSharedMemoryReader) closeSharedMemory() {
 	if r.shm != nil {
 		r.shm.Close()
 	}
 }
 
-func (r *SystemVSemaphoredSharedMemoryReader) Close() {
+func (r *SemaphoredSharedMemoryReader) Close() {
 	r.closeSemaphore()
 	r.closeSharedMemory()
 }
 
-type SystemVSemaphoredSharedMemoryReadOptions struct {
+type SemaphoredSharedMemoryReadOptions struct {
 	SemaphoreKey    int
 	SharedMemoryAt  int64
 	SharedMemoryKey int
 	Size            int
 }
 
-func (r *SystemVSemaphoredSharedMemoryReader) ReadBytes(o *SystemVSemaphoredSharedMemoryReadOptions) (b []byte, err error) {
+func (r *SemaphoredSharedMemoryReader) ReadBytes(o *SemaphoredSharedMemoryReadOptions) (b []byte, err error) {
 	// Lock
 	r.m.Lock()
 	defer r.m.Unlock()
@@ -399,8 +401,8 @@ func (r *SystemVSemaphoredSharedMemoryReader) ReadBytes(o *SystemVSemaphoredShar
 		r.closeSharedMemory()
 
 		// Open shared memory
-		var shm *SystemVSharedMemory
-		if shm, err = OpenSystemVSharedMemory(o.SharedMemoryKey); err != nil {
+		var shm *SharedMemory
+		if shm, err = OpenSharedMemory(o.SharedMemoryKey); err != nil {
 			err = fmt.Errorf("astikit: opening shared memory failed: %w", err)
 			return
 		}
@@ -416,8 +418,8 @@ func (r *SystemVSemaphoredSharedMemoryReader) ReadBytes(o *SystemVSemaphoredShar
 		r.closeSemaphore()
 
 		// Open semaphore
-		var sem *SystemVSemaphore
-		if sem, err = OpenSystemVSemaphore(o.SemaphoreKey); err != nil {
+		var sem *Semaphore
+		if sem, err = OpenSemaphore(o.SemaphoreKey); err != nil {
 			err = fmt.Errorf("astikit: opening semaphore failed: %w", err)
 			return
 		}

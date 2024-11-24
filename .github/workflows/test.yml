@@ -31,9 +31,7 @@ jobs:
       run: go mod download
 
     - name: Run tests
-      run: |
-        echo "CGO_ENABLED=0" >> $env:GITHUB_ENV
-        go test -race -covermode atomic -coverprofile=covprofile ./...
+      run: go test -race -covermode atomic -coverprofile=covprofile ./...
 
     - if: github.event_name != 'pull_request'
       name: Send coverage
