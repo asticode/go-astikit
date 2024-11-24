@@ -1,3 +1,5 @@
+//go:build !windows
+
 #include <errno.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
