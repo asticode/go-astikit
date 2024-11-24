@@ -554,3 +554,51 @@ func (d *AtomicDuration) Duration() time.Duration {
 	defer d.m.Unlock()
 	return d.d
 }
+
+// FIFOMutex is a mutex guaranteeing FIFO order
+type FIFOMutex struct {
+	busy    bool
+	m       sync.Mutex // Locks busy and waiting
+	waiting []*sync.Cond
+}
+
+func (m *FIFOMutex) Lock() {
+	// No need to wait
+	m.m.Lock()
+	if !m.busy {
+		m.busy = true
+		m.m.Unlock()
+		return
+	}
+
+	// Create cond
+	c := sync.NewCond(&sync.Mutex{})
+
+	// Make sure to lock cond when waiting mutex is still held
+	c.L.Lock()
+
+	// Add to waiting queue
+	m.waiting = append(m.waiting, c)
+	m.m.Unlock()
+
+	// Wait
+	c.Wait()
+}
+
+func (m *FIFOMutex) Unlock() {
+	// Lock
+	m.m.Lock()
+	defer m.m.Unlock()
+
+	// Waiting queue is empty
+	if len(m.waiting) == 0 {
+		m.busy = false
+		return
+	}
+
+	// Signal and remove first item in waiting queue
+	m.waiting[0].L.Lock()
+	m.waiting[0].Signal()
+	m.waiting[0].L.Unlock()
+	m.waiting = m.waiting[1:]
+}

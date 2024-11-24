@@ -192,3 +192,29 @@ func TestDebugMutex(t *testing.T) {
 		t.Fatalf("%s doesn't contain %s", g, s)
 	}
 }
+
+func TestFIFOMutex(t *testing.T) {
+	m := FIFOMutex{}
+	var r []int
+	m.Lock()
+	wg := sync.WaitGroup{}
+	testFIFOMutex(1, &m, &r, &wg)
+	m.Unlock()
+	wg.Wait()
+	if e, g := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, r; !reflect.DeepEqual(e, g) {
+		t.Fatalf("expected %v, got %v", e, g)
+	}
+}
+
+func testFIFOMutex(i int, m *FIFOMutex, r *[]int, wg *sync.WaitGroup) {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if i < 10 {
+			testFIFOMutex(i+1, m, r, wg)
+		}
+		m.Lock()
+		*r = append(*r, i)
+		m.Unlock()
+	}()
+}
