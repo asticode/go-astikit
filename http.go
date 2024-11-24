@@ -123,13 +123,7 @@ func (s *HTTPSender) Send(req *http.Request) (*http.Response, error) {
 }
 
 // SendWithTimeout sends a new *http.Request with a timeout
-func (s *HTTPSender) SendWithTimeout(req *http.Request, timeout time.Duration) (resp *http.Response, err error) {
-	// Set name
-	name := req.Method + " request"
-	if req.URL != nil {
-		name += " to " + req.URL.String()
-	}
-
+func (s *HTTPSender) SendWithTimeout(req *http.Request, timeout time.Duration) (*http.Response, error) {
 	// Timeout
 	if timeout > 0 {
 		// Create context
@@ -138,8 +132,21 @@ func (s *HTTPSender) SendWithTimeout(req *http.Request, timeout time.Duration) (
 
 		// Update request
 		req = req.WithContext(ctx)
+	}
 
-		// Update name
+	// Send
+	return s.send(req, timeout)
+}
+
+func (s *HTTPSender) send(req *http.Request, timeout time.Duration) (resp *http.Response, err error) {
+	// Set name
+	name := req.Method + " request"
+	if req.URL != nil {
+		name += " to " + req.URL.String()
+	}
+
+	// Timeout
+	if timeout > 0 {
 		name += " with timeout " + timeout.String()
 	}
 
@@ -232,15 +239,26 @@ func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
 		req.Header.Set(k, v)
 	}
 
-	// Get send func
-	sendFunc := func() (*http.Response, error) { return s.Send(req) }
+	// Get timeout
+	timeout := s.timeout
 	if o.Timeout > 0 {
-		sendFunc = func() (*http.Response, error) { return s.SendWithTimeout(req, o.Timeout) }
+		timeout = o.Timeout
+	}
+
+	// Handle timeout outside the .send() method otherwise context may be cancelled before
+	// reading all response body
+	if timeout > 0 {
+		// Create context
+		ctx, cancel := context.WithTimeout(req.Context(), timeout)
+		defer cancel()
+
+		// Update request
+		req = req.WithContext(ctx)
 	}
 
 	// Send request
 	var resp *http.Response
-	if resp, err = sendFunc(); err != nil {
+	if resp, err = s.send(req, timeout); err != nil {
 		err = fmt.Errorf("astikit: sending request failed: %w", err)
 		return
 	}

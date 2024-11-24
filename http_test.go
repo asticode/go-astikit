@@ -62,7 +62,7 @@ func (err mockedNetError) Temporary() bool { return false }
 func TestHTTPSender(t *testing.T) {
 	// All errors
 	var c int
-	s := NewHTTPSender(HTTPSenderOptions{
+	s1 := NewHTTPSender(HTTPSenderOptions{
 		Client: mockedHTTPClient(func(req *http.Request) (resp *http.Response, err error) {
 			c++
 			resp = &http.Response{StatusCode: http.StatusInternalServerError}
@@ -70,7 +70,7 @@ func TestHTTPSender(t *testing.T) {
 		}),
 		RetryMax: 3,
 	})
-	if _, err := s.Send(&http.Request{}); err == nil {
+	if _, err := s1.Send(&http.Request{}); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if e := 4; c != e {
@@ -79,7 +79,7 @@ func TestHTTPSender(t *testing.T) {
 
 	// Successful after retries
 	c = 0
-	s = NewHTTPSender(HTTPSenderOptions{
+	s2 := NewHTTPSender(HTTPSenderOptions{
 		Client: mockedHTTPClient(func(req *http.Request) (resp *http.Response, err error) {
 			c++
 			switch c {
@@ -95,7 +95,7 @@ func TestHTTPSender(t *testing.T) {
 		}),
 		RetryMax: 3,
 	})
-	if _, err := s.Send(&http.Request{}); err != nil {
+	if _, err := s2.Send(&http.Request{}); err != nil {
 		t.Fatalf("expected no error, got %+v", err)
 	}
 	if e := 3; c != e {
@@ -116,7 +116,7 @@ func TestHTTPSender(t *testing.T) {
 	)
 	var gu, gbi string
 	ghi := make(map[string]string)
-	s = NewHTTPSender(HTTPSenderOptions{
+	s3 := NewHTTPSender(HTTPSenderOptions{
 		Client: mockedHTTPClient(func(req *http.Request) (resp *http.Response, err error) {
 			switch req.Method {
 			case http.MethodHead:
@@ -140,7 +140,7 @@ func TestHTTPSender(t *testing.T) {
 	})
 	var gho http.Header
 	errTest := errors.New("test")
-	if err := s.SendJSON(HTTPSendJSONOptions{
+	if err := s3.SendJSON(HTTPSendJSONOptions{
 		HeadersIn:  ehi,
 		HeadersOut: func(h http.Header) { gho = h },
 		Method:     http.MethodHead,
@@ -166,7 +166,7 @@ func TestHTTPSender(t *testing.T) {
 		t.Fatalf("expected %s, got %s", eu, gu)
 	}
 	var gbe string
-	if err := s.SendJSON(HTTPSendJSONOptions{
+	if err := s3.SendJSON(HTTPSendJSONOptions{
 		BodyError: &gbe,
 		BodyIn:    ebi,
 		Method:    http.MethodPost,
@@ -180,7 +180,7 @@ func TestHTTPSender(t *testing.T) {
 		t.Fatalf("expected %s, got %s", ebi, gbi)
 	}
 	var gbo string
-	if err := s.SendJSON(HTTPSendJSONOptions{
+	if err := s3.SendJSON(HTTPSendJSONOptions{
 		BodyOut: &gbo,
 		Method:  http.MethodGet,
 	}); err != nil {
@@ -197,12 +197,20 @@ func TestHTTPSender(t *testing.T) {
 		<-ctx.Done()
 		return
 	})
-	s = NewHTTPSender(HTTPSenderOptions{Client: timeoutMockedHTTPClient})
-	if _, err := s.SendWithTimeout(&http.Request{}, time.Millisecond); err == nil {
+	s4 := NewHTTPSender(HTTPSenderOptions{Client: timeoutMockedHTTPClient})
+	if _, err := s4.SendWithTimeout(&http.Request{}, time.Millisecond); err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if err := s.SendJSON(HTTPSendJSONOptions{Timeout: time.Millisecond}); err == nil {
+	if err := s4.SendJSON(HTTPSendJSONOptions{Timeout: time.Millisecond}); err == nil {
 		t.Fatal("expected error, got nil")
+	}
+	// Make sure reading response body doesn't fail if timeout is not reached
+	if err := s3.SendJSON(HTTPSendJSONOptions{
+		BodyOut: &gbo,
+		Method:  http.MethodGet,
+		Timeout: time.Hour,
+	}); err != nil {
+		t.Fatalf("expected no error, got %s", err)
 	}
 }
 
