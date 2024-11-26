@@ -2,11 +2,10 @@ package astikit
 
 import (
 	"context"
+	"io"
 	"strconv"
 	"time"
 )
-
-var now = func() time.Time { return time.Now() }
 
 // Sleep is a cancellable sleep
 func Sleep(ctx context.Context, d time.Duration) (err error) {
@@ -55,4 +54,29 @@ func (t Timestamp) MarshalJSON() ([]byte, error) {
 func (t Timestamp) MarshalText() (text []byte, err error) {
 	text = []byte(strconv.Itoa(int(t.UTC().Unix())))
 	return
+}
+
+var now = time.Now
+
+func Now() time.Time {
+	return now()
+}
+
+type mockedNow struct {
+	previous func() time.Time
+}
+
+func newMockedNow() *mockedNow {
+	return &mockedNow{previous: now}
+}
+
+func (m *mockedNow) Close() error {
+	now = m.previous
+	return nil
+}
+
+func MockNow(fn func() time.Time) io.Closer {
+	m := newMockedNow()
+	now = fn
+	return m
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -43,5 +44,27 @@ func TestTimestamp(t *testing.T) {
 	}
 	if string(b) != j {
 		t.Fatalf("json should be %s, got %s", j, b)
+	}
+}
+
+func isAbsoluteTime(t time.Time) bool {
+	return t.Year() >= time.Now().Year()-1
+}
+
+func TestNow(t *testing.T) {
+	if g := Now(); !isAbsoluteTime(Now()) {
+		t.Fatalf("expected %s to be an absolute time", g)
+	}
+	var count int64
+	m := MockNow(func() time.Time {
+		count++
+		return time.Unix(count, 0)
+	})
+	if e, g := time.Unix(1, 0), Now(); !reflect.DeepEqual(e, g) {
+		t.Fatalf("expected %s, got %s", e, g)
+	}
+	m.Close()
+	if g := Now(); !isAbsoluteTime(Now()) {
+		t.Fatalf("expected %s to be an absolute time", g)
 	}
 }
