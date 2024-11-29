@@ -112,7 +112,7 @@ func TestStopwatch(t *testing.T) {
 	s5 := NewStopwatch()
 	s5.NewChild("3-2-2")
 	s6 := s5.NewChild("3-2-3")
-	s6.NewChild("3-2-3-1")
+	s7 := s6.NewChild("3-2-3-1")
 	s5.Done()
 	s4.Merge(s5)
 	s3.NewChild("3-3")
@@ -139,14 +139,27 @@ func TestStopwatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
-	if e, g := []byte(`{"children":[{"children":[],"created_at":11000000000,"done_at":12000000000,"label":"3-2-2"},{"children":[{"children":[],"created_at":13000000000,"done_at":14000000000,"label":"3-2-3-1"}],"created_at":12000000000,"done_at":14000000000,"label":"3-2-3"}],"created_at":10000000000,"done_at":14000000000,"label":""}`), b; !bytes.Equal(e, g) {
+	if e, g := []byte(`{"children":[{"children":[],"created_at":11000000000,"done_at":12000000000,"id":"3-2-2"},{"children":[{"children":[],"created_at":13000000000,"done_at":14000000000,"id":"3-2-3-1"}],"created_at":12000000000,"done_at":14000000000,"id":"3-2-3"}],"created_at":10000000000,"done_at":14000000000,"id":""}`), b; !bytes.Equal(e, g) {
 		t.Fatalf("expected %s, got %s", e, g)
 	}
-	var s7 Stopwatch
-	if err = s7.UnmarshalJSON(b); err != nil {
+	var s8 Stopwatch
+	if err = s8.UnmarshalJSON(b); err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
-	if e, g := *s5, s7; !reflect.DeepEqual(e, g) {
+	if e, g := *s5, s8; !reflect.DeepEqual(e, g) {
+		t.Fatalf("expected %+v, got %+v", e, g)
+	}
+	s9, ok := s1.FindChild("3")
+	if !ok {
+		t.Fatal("expected true, got false")
+	}
+	if e, g := s3, s9; e != g {
+		t.Fatalf("expected %+v, got %+v", e, g)
+	}
+	if s9, ok = s1.FindChild("3", "3-2", "3-2-3", "3-2-3-1"); !ok {
+		t.Fatal("expected true, got false")
+	}
+	if e, g := s7, s9; e != g {
 		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 }

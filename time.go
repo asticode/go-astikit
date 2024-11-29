@@ -132,23 +132,23 @@ type Stopwatch struct {
 	children  []*Stopwatch
 	createdAt time.Time
 	doneAt    time.Time
-	label     string
+	id        string
 }
 
 func NewStopwatch() *Stopwatch {
 	return newStopwatch("")
 }
 
-func newStopwatch(label string) *Stopwatch {
+func newStopwatch(id string) *Stopwatch {
 	return &Stopwatch{
 		createdAt: Now(),
-		label:     label,
+		id:        id,
 	}
 }
 
-func (s *Stopwatch) NewChild(label string) *Stopwatch {
+func (s *Stopwatch) NewChild(id string) *Stopwatch {
 	// Create stopwatch
-	dst := newStopwatch(label)
+	dst := newStopwatch(id)
 
 	// Make sure to propagate done to children
 	s.propagateDone(dst.createdAt)
@@ -186,6 +186,30 @@ func (s *Stopwatch) Done() {
 	s.propagateDone(s.doneAt)
 }
 
+func (s *Stopwatch) FindChild(id string, nextIDs ...string) (*Stopwatch, bool) {
+	return s.child(append([]string{id}, nextIDs...)...)
+}
+
+func (s *Stopwatch) child(ids ...string) (*Stopwatch, bool) {
+	// Loop through ids
+	for idx, id := range ids {
+		// Loop through children
+		for _, c := range s.children {
+			// Child doesn't match
+			if c.id != id {
+				continue
+			}
+
+			// Last id
+			if idx == len(ids)-1 {
+				return c, true
+			}
+			return c.child(ids[idx:]...)
+		}
+	}
+	return nil, false
+}
+
 func (s *Stopwatch) Duration() time.Duration {
 	if !s.doneAt.IsZero() {
 		return s.doneAt.Sub(s.createdAt)
@@ -216,7 +240,7 @@ func (s *Stopwatch) dump(ident string, rootCreatedAt time.Time) string {
 	if ident == "" {
 		ss = append(ss, DurationMinimalistFormat(s.doneAt.Sub(s.createdAt)))
 	} else {
-		ss = append(ss, fmt.Sprintf("%s[%s]%s: %s", ident, DurationMinimalistFormat(s.createdAt.Sub(rootCreatedAt)), s.label, DurationMinimalistFormat(s.doneAt.Sub(s.createdAt))))
+		ss = append(ss, fmt.Sprintf("%s[%s]%s: %s", ident, DurationMinimalistFormat(s.createdAt.Sub(rootCreatedAt)), s.id, DurationMinimalistFormat(s.doneAt.Sub(s.createdAt))))
 	}
 
 	// Loop through children
@@ -232,13 +256,13 @@ type stopwatchJSON struct {
 	Children  []stopwatchJSON `json:"children"`
 	CreatedAt TimestampNano   `json:"created_at"`
 	DoneAt    TimestampNano   `json:"done_at"`
-	Label     string          `json:"label"`
+	ID        string          `json:"id"`
 }
 
 func (sj stopwatchJSON) toStopwatch(s *Stopwatch) {
 	s.createdAt = sj.CreatedAt.Time
 	s.doneAt = sj.DoneAt.Time
-	s.label = sj.Label
+	s.id = sj.ID
 	for _, cj := range sj.Children {
 		c := &Stopwatch{}
 		cj.toStopwatch(c)
@@ -250,7 +274,7 @@ func (s *Stopwatch) toStopwatchJSON() (sj stopwatchJSON) {
 	sj.Children = []stopwatchJSON{}
 	sj.CreatedAt = *NewTimestampNano(s.createdAt)
 	sj.DoneAt = *NewTimestampNano(s.doneAt)
-	sj.Label = s.label
+	sj.ID = s.id
 	for _, c := range s.children {
 		sj.Children = append(sj.Children, c.toStopwatchJSON())
 	}
