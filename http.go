@@ -200,6 +200,7 @@ type HTTPSendJSONOptions struct {
 	BodyError      interface{}
 	BodyIn         interface{}
 	BodyOut        interface{}
+	Context        context.Context
 	HeadersIn      map[string]string
 	HeadersOut     HTTPSenderHeaderFunc
 	Host           string
@@ -222,9 +223,15 @@ func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
 		bi = bb
 	}
 
+	// Get context
+	ctx := o.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	// Create request
 	var req *http.Request
-	if req, err = http.NewRequest(o.Method, o.URL, bi); err != nil {
+	if req, err = http.NewRequestWithContext(ctx, o.Method, o.URL, bi); err != nil {
 		err = fmt.Errorf("astikit: creating request failed: %w", err)
 		return
 	}

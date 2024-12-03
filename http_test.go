@@ -212,6 +212,17 @@ func TestHTTPSender(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("expected no error, got %s", err)
 	}
+
+	// Context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	ctxCheckerMockedHTTPClient := mockedHTTPClient(func(req *http.Request) (resp *http.Response, err error) {
+		return &http.Response{}, req.Context().Err()
+	})
+	s5 := NewHTTPSender(HTTPSenderOptions{Client: ctxCheckerMockedHTTPClient})
+	if err := s5.SendJSON(HTTPSendJSONOptions{Context: ctx}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancelled error, got %s", err)
+	}
 }
 
 func TestHTTPDownloader(t *testing.T) {
