@@ -14,12 +14,12 @@ func TestEvent(t *testing.T) {
 		eventName3 astikit.EventName = "event-name-3"
 	)
 	m := astikit.NewEventManager()
-	ons := make(map[astikit.EventName][]interface{})
-	m.On(eventName1, func(payload interface{}) (delete bool) {
+	ons := make(map[astikit.EventName][]any)
+	m.On(eventName1, func(payload any) (delete bool) {
 		ons[eventName1] = append(ons[eventName1], payload)
 		return true
 	})
-	id := m.On(eventName3, func(payload interface{}) (delete bool) {
+	id := m.On(eventName3, func(payload any) (delete bool) {
 		ons[eventName3] = append(ons[eventName3], payload)
 		return false
 	})
@@ -34,7 +34,7 @@ func TestEvent(t *testing.T) {
 	m.Off(id)
 	m.Emit(eventName3, 3)
 
-	if e, g := map[astikit.EventName][]interface{}{
+	if e, g := map[astikit.EventName][]any{
 		eventName1: {1},
 		eventName3: {1, 2},
 	}, ons; !reflect.DeepEqual(e, g) {

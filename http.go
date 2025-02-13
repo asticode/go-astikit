@@ -197,9 +197,9 @@ type HTTPSenderStatusCodeFunc func(code int) error
 
 // HTTPSendJSONOptions represents SendJSON options
 type HTTPSendJSONOptions struct {
-	BodyError      interface{}
-	BodyIn         interface{}
-	BodyOut        interface{}
+	BodyError      any
+	BodyIn         any
+	BodyOut        any
 	Context        context.Context
 	HeadersIn      map[string]string
 	HeadersOut     HTTPSenderHeaderFunc

@@ -31,7 +31,7 @@ func TestTranslator(t *testing.T) {
 	// Middleware
 	var o string
 	s := httptest.NewServer(ChainHTTPMiddlewares(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		var args []interface{}
+		var args []any
 		if v := r.Header.Get("args"); v != "" {
 			for _, s := range strings.Split(v, ",") {
 				args = append(args, s)

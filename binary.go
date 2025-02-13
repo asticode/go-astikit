@@ -55,7 +55,7 @@ func (w *BitsWriter) SetWriteCallback(cb BitsWriterWriteCallback) {
 //   - []byte: processed as n bytes, n being the length of the input
 //   - bool: processed as one bit
 //   - uint8/uint16/uint32/uint64: processed as n bits, if type is uintn
-func (w *BitsWriter) Write(i interface{}) error {
+func (w *BitsWriter) Write(i any) error {
 	// Transform input into "10010" format
 
 	switch a := i.(type) {
@@ -244,7 +244,7 @@ func (w *BitsWriter) writeBitsN(toWrite uint64, n int) (err error) {
 }
 
 // WriteN writes the input into n bits
-func (w *BitsWriter) WriteN(i interface{}, n int) error {
+func (w *BitsWriter) WriteN(i any, n int) error {
 	var toWrite uint64
 	switch a := i.(type) {
 	case uint8:
@@ -276,14 +276,14 @@ func NewBitsWriterBatch(w *BitsWriter) BitsWriterBatch {
 }
 
 // Calls BitsWriter.Write if there was no write error before
-func (b *BitsWriterBatch) Write(i interface{}) {
+func (b *BitsWriterBatch) Write(i any) {
 	if b.err == nil {
 		b.err = b.w.Write(i)
 	}
 }
 
 // Calls BitsWriter.WriteN if there was no write error before
-func (b *BitsWriterBatch) WriteN(i interface{}, n int) {
+func (b *BitsWriterBatch) WriteN(i any, n int) {
 	if b.err == nil {
 		b.err = b.w.WriteN(i, n)
 	}

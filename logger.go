@@ -68,93 +68,93 @@ type CompleteLogger interface {
 
 // StdLogger represents a standard logger
 type StdLogger interface {
-	Fatal(v ...interface{})
-	Fatalf(format string, v ...interface{})
-	Print(v ...interface{})
-	Printf(format string, v ...interface{})
+	Fatal(v ...any)
+	Fatalf(format string, v ...any)
+	Print(v ...any)
+	Printf(format string, v ...any)
 }
 
 // SeverityLogger represents a severity logger
 type SeverityLogger interface {
-	Debug(v ...interface{})
-	Debugf(format string, v ...interface{})
-	Error(v ...interface{})
-	Errorf(format string, v ...interface{})
-	Info(v ...interface{})
-	Infof(format string, v ...interface{})
-	Warn(v ...interface{})
-	Warnf(format string, v ...interface{})
+	Debug(v ...any)
+	Debugf(format string, v ...any)
+	Error(v ...any)
+	Errorf(format string, v ...any)
+	Info(v ...any)
+	Infof(format string, v ...any)
+	Warn(v ...any)
+	Warnf(format string, v ...any)
 }
 
 type TestLogger interface {
-	Error(v ...interface{})
-	Errorf(format string, v ...interface{})
-	Fatal(v ...interface{})
-	Fatalf(format string, v ...interface{})
-	Log(v ...interface{})
-	Logf(format string, v ...interface{})
+	Error(v ...any)
+	Errorf(format string, v ...any)
+	Fatal(v ...any)
+	Fatalf(format string, v ...any)
+	Log(v ...any)
+	Logf(format string, v ...any)
 }
 
 // SeverityCtxLogger represents a severity with context logger
 type SeverityCtxLogger interface {
-	DebugC(ctx context.Context, v ...interface{})
-	DebugCf(ctx context.Context, format string, v ...interface{})
-	ErrorC(ctx context.Context, v ...interface{})
-	ErrorCf(ctx context.Context, format string, v ...interface{})
-	FatalC(ctx context.Context, v ...interface{})
-	FatalCf(ctx context.Context, format string, v ...interface{})
-	InfoC(ctx context.Context, v ...interface{})
-	InfoCf(ctx context.Context, format string, v ...interface{})
-	WarnC(ctx context.Context, v ...interface{})
-	WarnCf(ctx context.Context, format string, v ...interface{})
+	DebugC(ctx context.Context, v ...any)
+	DebugCf(ctx context.Context, format string, v ...any)
+	ErrorC(ctx context.Context, v ...any)
+	ErrorCf(ctx context.Context, format string, v ...any)
+	FatalC(ctx context.Context, v ...any)
+	FatalCf(ctx context.Context, format string, v ...any)
+	InfoC(ctx context.Context, v ...any)
+	InfoCf(ctx context.Context, format string, v ...any)
+	WarnC(ctx context.Context, v ...any)
+	WarnCf(ctx context.Context, format string, v ...any)
 }
 
 type SeverityWriteLogger interface {
-	Write(l LoggerLevel, v ...interface{})
-	Writef(l LoggerLevel, format string, v ...interface{})
+	Write(l LoggerLevel, v ...any)
+	Writef(l LoggerLevel, format string, v ...any)
 }
 
 type SeverityWriteCtxLogger interface {
-	WriteC(ctx context.Context, l LoggerLevel, v ...interface{})
-	WriteCf(ctx context.Context, l LoggerLevel, format string, v ...interface{})
+	WriteC(ctx context.Context, l LoggerLevel, v ...any)
+	WriteCf(ctx context.Context, l LoggerLevel, format string, v ...any)
 }
 
 type completeLogger struct {
-	print, debug, error, fatal, info, warn       func(v ...interface{})
-	printf, debugf, errorf, fatalf, infof, warnf func(format string, v ...interface{})
-	debugC, errorC, fatalC, infoC, warnC         func(ctx context.Context, v ...interface{})
-	debugCf, errorCf, fatalCf, infoCf, warnCf    func(ctx context.Context, format string, v ...interface{})
-	write                                        func(l LoggerLevel, v ...interface{})
-	writeC                                       func(ctx context.Context, l LoggerLevel, v ...interface{})
-	writeCf                                      func(ctx context.Context, l LoggerLevel, format string, v ...interface{})
-	writef                                       func(l LoggerLevel, format string, v ...interface{})
+	print, debug, error, fatal, info, warn       func(v ...any)
+	printf, debugf, errorf, fatalf, infof, warnf func(format string, v ...any)
+	debugC, errorC, fatalC, infoC, warnC         func(ctx context.Context, v ...any)
+	debugCf, errorCf, fatalCf, infoCf, warnCf    func(ctx context.Context, format string, v ...any)
+	write                                        func(l LoggerLevel, v ...any)
+	writeC                                       func(ctx context.Context, l LoggerLevel, v ...any)
+	writeCf                                      func(ctx context.Context, l LoggerLevel, format string, v ...any)
+	writef                                       func(l LoggerLevel, format string, v ...any)
 }
 
 func newCompleteLogger() *completeLogger {
 	l := &completeLogger{}
-	l.debug = func(v ...interface{}) { l.print(v...) }
-	l.debugf = func(format string, v ...interface{}) { l.printf(format, v...) }
-	l.debugC = func(ctx context.Context, v ...interface{}) { l.debug(v...) }
-	l.debugCf = func(ctx context.Context, format string, v ...interface{}) { l.debugf(format, v...) }
-	l.error = func(v ...interface{}) { l.print(v...) }
-	l.errorf = func(format string, v ...interface{}) { l.printf(format, v...) }
-	l.errorC = func(ctx context.Context, v ...interface{}) { l.error(v...) }
-	l.errorCf = func(ctx context.Context, format string, v ...interface{}) { l.errorf(format, v...) }
-	l.fatal = func(v ...interface{}) { l.print(v...) }
-	l.fatalf = func(format string, v ...interface{}) { l.printf(format, v...) }
-	l.fatalC = func(ctx context.Context, v ...interface{}) { l.fatal(v...) }
-	l.fatalCf = func(ctx context.Context, format string, v ...interface{}) { l.fatalf(format, v...) }
-	l.info = func(v ...interface{}) { l.print(v...) }
-	l.infof = func(format string, v ...interface{}) { l.printf(format, v...) }
-	l.infoC = func(ctx context.Context, v ...interface{}) { l.info(v...) }
-	l.infoCf = func(ctx context.Context, format string, v ...interface{}) { l.infof(format, v...) }
-	l.print = func(v ...interface{}) {}
-	l.printf = func(format string, v ...interface{}) {}
-	l.warn = func(v ...interface{}) { l.print(v...) }
-	l.warnf = func(format string, v ...interface{}) { l.printf(format, v...) }
-	l.warnC = func(ctx context.Context, v ...interface{}) { l.warn(v...) }
-	l.warnCf = func(ctx context.Context, format string, v ...interface{}) { l.warnf(format, v...) }
-	l.write = func(lv LoggerLevel, v ...interface{}) {
+	l.debug = func(v ...any) { l.print(v...) }
+	l.debugf = func(format string, v ...any) { l.printf(format, v...) }
+	l.debugC = func(ctx context.Context, v ...any) { l.debug(v...) }
+	l.debugCf = func(ctx context.Context, format string, v ...any) { l.debugf(format, v...) }
+	l.error = func(v ...any) { l.print(v...) }
+	l.errorf = func(format string, v ...any) { l.printf(format, v...) }
+	l.errorC = func(ctx context.Context, v ...any) { l.error(v...) }
+	l.errorCf = func(ctx context.Context, format string, v ...any) { l.errorf(format, v...) }
+	l.fatal = func(v ...any) { l.print(v...) }
+	l.fatalf = func(format string, v ...any) { l.printf(format, v...) }
+	l.fatalC = func(ctx context.Context, v ...any) { l.fatal(v...) }
+	l.fatalCf = func(ctx context.Context, format string, v ...any) { l.fatalf(format, v...) }
+	l.info = func(v ...any) { l.print(v...) }
+	l.infof = func(format string, v ...any) { l.printf(format, v...) }
+	l.infoC = func(ctx context.Context, v ...any) { l.info(v...) }
+	l.infoCf = func(ctx context.Context, format string, v ...any) { l.infof(format, v...) }
+	l.print = func(v ...any) {}
+	l.printf = func(format string, v ...any) {}
+	l.warn = func(v ...any) { l.print(v...) }
+	l.warnf = func(format string, v ...any) { l.printf(format, v...) }
+	l.warnC = func(ctx context.Context, v ...any) { l.warn(v...) }
+	l.warnCf = func(ctx context.Context, format string, v ...any) { l.warnf(format, v...) }
+	l.write = func(lv LoggerLevel, v ...any) {
 		switch lv {
 		case LoggerLevelDebug:
 			l.debug(v...)
@@ -168,7 +168,7 @@ func newCompleteLogger() *completeLogger {
 			l.info(v...)
 		}
 	}
-	l.writeC = func(ctx context.Context, lv LoggerLevel, v ...interface{}) {
+	l.writeC = func(ctx context.Context, lv LoggerLevel, v ...any) {
 		switch lv {
 		case LoggerLevelDebug:
 			l.debugC(ctx, v...)
@@ -182,7 +182,7 @@ func newCompleteLogger() *completeLogger {
 			l.infoC(ctx, v...)
 		}
 	}
-	l.writeCf = func(ctx context.Context, lv LoggerLevel, format string, v ...interface{}) {
+	l.writeCf = func(ctx context.Context, lv LoggerLevel, format string, v ...any) {
 		switch lv {
 		case LoggerLevelDebug:
 			l.debugCf(ctx, format, v...)
@@ -196,7 +196,7 @@ func newCompleteLogger() *completeLogger {
 			l.infoCf(ctx, format, v...)
 		}
 	}
-	l.writef = func(lv LoggerLevel, format string, v ...interface{}) {
+	l.writef = func(lv LoggerLevel, format string, v ...any) {
 		switch lv {
 		case LoggerLevelDebug:
 			l.debugf(format, v...)
@@ -213,46 +213,46 @@ func newCompleteLogger() *completeLogger {
 	return l
 }
 
-func (l *completeLogger) Debug(v ...interface{})                       { l.debug(v...) }
-func (l *completeLogger) Debugf(format string, v ...interface{})       { l.debugf(format, v...) }
-func (l *completeLogger) DebugC(ctx context.Context, v ...interface{}) { l.debugC(ctx, v...) }
-func (l *completeLogger) DebugCf(ctx context.Context, format string, v ...interface{}) {
+func (l *completeLogger) Debug(v ...any)                       { l.debug(v...) }
+func (l *completeLogger) Debugf(format string, v ...any)       { l.debugf(format, v...) }
+func (l *completeLogger) DebugC(ctx context.Context, v ...any) { l.debugC(ctx, v...) }
+func (l *completeLogger) DebugCf(ctx context.Context, format string, v ...any) {
 	l.debugCf(ctx, format, v...)
 }
-func (l *completeLogger) Error(v ...interface{})                       { l.error(v...) }
-func (l *completeLogger) Errorf(format string, v ...interface{})       { l.errorf(format, v...) }
-func (l *completeLogger) ErrorC(ctx context.Context, v ...interface{}) { l.errorC(ctx, v...) }
-func (l *completeLogger) ErrorCf(ctx context.Context, format string, v ...interface{}) {
+func (l *completeLogger) Error(v ...any)                       { l.error(v...) }
+func (l *completeLogger) Errorf(format string, v ...any)       { l.errorf(format, v...) }
+func (l *completeLogger) ErrorC(ctx context.Context, v ...any) { l.errorC(ctx, v...) }
+func (l *completeLogger) ErrorCf(ctx context.Context, format string, v ...any) {
 	l.errorCf(ctx, format, v...)
 }
-func (l *completeLogger) Fatal(v ...interface{})                       { l.fatal(v...) }
-func (l *completeLogger) Fatalf(format string, v ...interface{})       { l.fatalf(format, v...) }
-func (l *completeLogger) FatalC(ctx context.Context, v ...interface{}) { l.fatalC(ctx, v...) }
-func (l *completeLogger) FatalCf(ctx context.Context, format string, v ...interface{}) {
+func (l *completeLogger) Fatal(v ...any)                       { l.fatal(v...) }
+func (l *completeLogger) Fatalf(format string, v ...any)       { l.fatalf(format, v...) }
+func (l *completeLogger) FatalC(ctx context.Context, v ...any) { l.fatalC(ctx, v...) }
+func (l *completeLogger) FatalCf(ctx context.Context, format string, v ...any) {
 	l.fatalCf(ctx, format, v...)
 }
-func (l *completeLogger) Info(v ...interface{})                       { l.info(v...) }
-func (l *completeLogger) Infof(format string, v ...interface{})       { l.infof(format, v...) }
-func (l *completeLogger) InfoC(ctx context.Context, v ...interface{}) { l.infoC(ctx, v...) }
-func (l *completeLogger) InfoCf(ctx context.Context, format string, v ...interface{}) {
+func (l *completeLogger) Info(v ...any)                       { l.info(v...) }
+func (l *completeLogger) Infof(format string, v ...any)       { l.infof(format, v...) }
+func (l *completeLogger) InfoC(ctx context.Context, v ...any) { l.infoC(ctx, v...) }
+func (l *completeLogger) InfoCf(ctx context.Context, format string, v ...any) {
 	l.infoCf(ctx, format, v...)
 }
-func (l *completeLogger) Print(v ...interface{})                      { l.print(v...) }
-func (l *completeLogger) Printf(format string, v ...interface{})      { l.printf(format, v...) }
-func (l *completeLogger) Warn(v ...interface{})                       { l.warn(v...) }
-func (l *completeLogger) Warnf(format string, v ...interface{})       { l.warnf(format, v...) }
-func (l *completeLogger) WarnC(ctx context.Context, v ...interface{}) { l.warnC(ctx, v...) }
-func (l *completeLogger) WarnCf(ctx context.Context, format string, v ...interface{}) {
+func (l *completeLogger) Print(v ...any)                      { l.print(v...) }
+func (l *completeLogger) Printf(format string, v ...any)      { l.printf(format, v...) }
+func (l *completeLogger) Warn(v ...any)                       { l.warn(v...) }
+func (l *completeLogger) Warnf(format string, v ...any)       { l.warnf(format, v...) }
+func (l *completeLogger) WarnC(ctx context.Context, v ...any) { l.warnC(ctx, v...) }
+func (l *completeLogger) WarnCf(ctx context.Context, format string, v ...any) {
 	l.warnCf(ctx, format, v...)
 }
-func (l *completeLogger) Write(lv LoggerLevel, v ...interface{}) { l.write(lv, v...) }
-func (l *completeLogger) Writef(lv LoggerLevel, format string, v ...interface{}) {
+func (l *completeLogger) Write(lv LoggerLevel, v ...any) { l.write(lv, v...) }
+func (l *completeLogger) Writef(lv LoggerLevel, format string, v ...any) {
 	l.writef(lv, format, v...)
 }
-func (l *completeLogger) WriteC(ctx context.Context, lv LoggerLevel, v ...interface{}) {
+func (l *completeLogger) WriteC(ctx context.Context, lv LoggerLevel, v ...any) {
 	l.writeC(ctx, lv, v...)
 }
-func (l *completeLogger) WriteCf(ctx context.Context, lv LoggerLevel, format string, v ...interface{}) {
+func (l *completeLogger) WriteCf(ctx context.Context, lv LoggerLevel, format string, v ...any) {
 	l.writeCf(ctx, lv, format, v...)
 }
 

@@ -129,8 +129,8 @@ func TestGoroutineLimiter(t *testing.T) {
 func TestEventer(t *testing.T) {
 	e := NewEventer(EventerOptions{Chan: ChanOptions{ProcessAll: true}})
 	var o []string
-	e.On("1", func(payload interface{}) { o = append(o, payload.(string)) })
-	e.On("2", func(payload interface{}) { o = append(o, payload.(string)) })
+	e.On("1", func(payload any) { o = append(o, payload.(string)) })
+	e.On("2", func(payload any) { o = append(o, payload.(string)) })
 	go func() {
 		time.Sleep(10 * time.Millisecond)
 		e.Dispatch("1", "1.1")
@@ -149,22 +149,22 @@ type mockedStdLogger struct {
 	ss []string
 }
 
-func (l *mockedStdLogger) Fatal(v ...interface{}) {
+func (l *mockedStdLogger) Fatal(v ...any) {
 	l.m.Lock()
 	defer l.m.Unlock()
 	l.ss = append(l.ss, "fatal: "+fmt.Sprint(v...))
 }
-func (l *mockedStdLogger) Fatalf(format string, v ...interface{}) {
+func (l *mockedStdLogger) Fatalf(format string, v ...any) {
 	l.m.Lock()
 	defer l.m.Unlock()
 	l.ss = append(l.ss, "fatal: "+fmt.Sprintf(format, v...))
 }
-func (l *mockedStdLogger) Print(v ...interface{}) {
+func (l *mockedStdLogger) Print(v ...any) {
 	l.m.Lock()
 	defer l.m.Unlock()
 	l.ss = append(l.ss, "print: "+fmt.Sprint(v...))
 }
-func (l *mockedStdLogger) Printf(format string, v ...interface{}) {
+func (l *mockedStdLogger) Printf(format string, v ...any) {
 	l.m.Lock()
 	defer l.m.Unlock()
 	l.ss = append(l.ss, "print: "+fmt.Sprintf(format, v...))

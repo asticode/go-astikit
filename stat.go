@@ -22,7 +22,7 @@ type Stater struct {
 type StatOptions struct {
 	Metadata *StatMetadata
 	// Either a StatValuer or StatValuerOverTime
-	Valuer interface{}
+	Valuer any
 }
 
 // StatsHandleFunc is a method that can handle stat values
@@ -38,19 +38,19 @@ type StatMetadata struct {
 
 // StatValuer represents a stat valuer
 type StatValuer interface {
-	Value(delta time.Duration) interface{}
+	Value(delta time.Duration) any
 }
 
-type StatValuerFunc func(d time.Duration) interface{}
+type StatValuerFunc func(d time.Duration) any
 
-func (f StatValuerFunc) Value(d time.Duration) interface{} {
+func (f StatValuerFunc) Value(d time.Duration) any {
 	return f(d)
 }
 
 // StatValue represents a stat value
 type StatValue struct {
 	*StatMetadata
-	Value interface{}
+	Value any
 }
 
 // StaterOptions represents stater options
@@ -103,7 +103,7 @@ func (s *Stater) Start(ctx context.Context) {
 				s.m.Lock()
 				for _, o := range s.ss {
 					// Get value
-					var v interface{}
+					var v any
 					if h, ok := o.Valuer.(StatValuer); ok {
 						v = h.Value(delta)
 					} else {
@@ -161,7 +161,7 @@ func NewAtomicUint64RateStat(v *uint64) *AtomicUint64RateStat {
 	return &AtomicUint64RateStat{v: v}
 }
 
-func (s *AtomicUint64RateStat) Value(d time.Duration) interface{} {
+func (s *AtomicUint64RateStat) Value(d time.Duration) any {
 	current := atomic.LoadUint64(s.v)
 	defer func() { s.last = &current }()
 	if d <= 0 {
@@ -183,7 +183,7 @@ func NewAtomicDurationPercentageStat(d *AtomicDuration) *AtomicDurationPercentag
 	return &AtomicDurationPercentageStat{d: d}
 }
 
-func (s *AtomicDurationPercentageStat) Value(d time.Duration) interface{} {
+func (s *AtomicDurationPercentageStat) Value(d time.Duration) any {
 	current := s.d.Duration()
 	defer func() { s.last = &current }()
 	if d <= 0 {
@@ -210,7 +210,7 @@ func NewAtomicDurationAvgStat(d *AtomicDuration, count *uint64) *AtomicDurationA
 	}
 }
 
-func (s *AtomicDurationAvgStat) Value(_ time.Duration) interface{} {
+func (s *AtomicDurationAvgStat) Value(_ time.Duration) any {
 	current := s.d.Duration()
 	currentCount := atomic.LoadUint64(s.count)
 	defer func() {

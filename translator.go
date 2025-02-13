@@ -101,7 +101,7 @@ func (t *Translator) ParseFile(dirPath, path string) (err error) {
 	defer f.Close()
 
 	// Unmarshal
-	var p map[string]interface{}
+	var p map[string]any
 	if err = json.NewDecoder(f).Decode(&p); err != nil {
 		err = fmt.Errorf("astikit: unmarshaling %s failed: %w", path, err)
 		return
@@ -134,13 +134,13 @@ func (t *Translator) key(prefix, key string) string {
 	return prefix + "." + key
 }
 
-func (t *Translator) parse(i map[string]interface{}, prefix string) {
+func (t *Translator) parse(i map[string]any, prefix string) {
 	for k, v := range i {
 		p := t.key(prefix, k)
 		switch a := v.(type) {
 		case string:
 			t.p[p] = a
-		case map[string]interface{}:
+		case map[string]any:
 			t.parse(a, p)
 		}
 	}
@@ -256,7 +256,7 @@ func (t *Translator) Translate(language, key string) string {
 }
 
 // Translatef translates a key into a specific language with optional formatting args
-func (t *Translator) Translatef(language, key string, args ...interface{}) string {
+func (t *Translator) Translatef(language, key string, args ...any) string {
 	return fmt.Sprintf(t.Translate(language, key), args...)
 }
 
@@ -270,6 +270,6 @@ func (t *Translator) TranslateC(ctx context.Context, key string) string {
 	return t.Translate(translatorLanguageFromContext(ctx), key)
 }
 
-func (t *Translator) TranslateCf(ctx context.Context, key string, args ...interface{}) string {
+func (t *Translator) TranslateCf(ctx context.Context, key string, args ...any) string {
 	return t.Translatef(translatorLanguageFromContext(ctx), key, args...)
 }

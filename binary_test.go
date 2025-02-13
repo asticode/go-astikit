@@ -162,7 +162,7 @@ func TestNewBitsWriterBatch(t *testing.T) {
 
 func BenchmarkBitsWriter_Write(b *testing.B) {
 	benchmarks := []struct {
-		input interface{}
+		input any
 	}{
 		{"000000"},
 		{false},
@@ -191,7 +191,7 @@ func BenchmarkBitsWriter_Write(b *testing.B) {
 
 func BenchmarkBitsWriter_WriteN(b *testing.B) {
 	type benchData struct {
-		i interface{}
+		i any
 		n int
 	}
 	benchmarks := make([]benchData, 0, 128)

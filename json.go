@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-func JSONEqual(a, b interface{}) bool {
+func JSONEqual(a, b any) bool {
 	ba, err := json.Marshal(a)
 	if err != nil {
 		return false
@@ -18,7 +18,7 @@ func JSONEqual(a, b interface{}) bool {
 	return bytes.Equal(ba, bb)
 }
 
-func JSONClone(src, dst interface{}) (err error) {
+func JSONClone(src, dst any) (err error) {
 	// Marshal
 	var b []byte
 	if b, err = json.Marshal(src); err != nil {

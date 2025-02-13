@@ -36,7 +36,7 @@ func TestStater(t *testing.T) {
 	v3 := NewAtomicDurationAvgStat(d3, &u1)
 	m3 := &StatMetadata{Description: "3"}
 	o3 := StatOptions{Metadata: m3, Valuer: v3}
-	v4 := StatValuerFunc(func(d time.Duration) interface{} { return 42 })
+	v4 := StatValuerFunc(func(d time.Duration) any { return 42 })
 	m4 := &StatMetadata{Description: "4"}
 	o4 := StatOptions{Metadata: m4, Valuer: v4}
 

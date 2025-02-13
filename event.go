@@ -4,7 +4,7 @@ import (
 	"sync"
 )
 
-type EventHandler func(payload interface{}) (delete bool)
+type EventHandler func(payload any) (delete bool)
 
 type EventName string
 
@@ -59,7 +59,7 @@ func (m *EventManager) Off(id uint64) {
 	}
 }
 
-func (m *EventManager) Emit(n EventName, payload interface{}) {
+func (m *EventManager) Emit(n EventName, payload any) {
 	// Loop through handlers
 	for _, h := range m.handlers(n) {
 		if h.h(payload) {

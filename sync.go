@@ -231,7 +231,7 @@ type BufferPool struct {
 
 // NewBufferPool creates a new BufferPool
 func NewBufferPool() *BufferPool {
-	return &BufferPool{bp: &sync.Pool{New: func() interface{} { return &bytes.Buffer{} }}}
+	return &BufferPool{bp: &sync.Pool{New: func() any { return &bytes.Buffer{} }}}
 }
 
 // New creates a new BufferPoolItem
@@ -359,7 +359,7 @@ type EventerOptions struct {
 }
 
 // EventerHandler represents a function that can handle the payload of an event
-type EventerHandler func(payload interface{})
+type EventerHandler func(payload any)
 
 // NewEventer creates a new eventer
 func NewEventer(o EventerOptions) *Eventer {
@@ -381,7 +381,7 @@ func (e *Eventer) On(name string, h EventerHandler) {
 }
 
 // Dispatch dispatches a payload for a specific name
-func (e *Eventer) Dispatch(name string, payload interface{}) {
+func (e *Eventer) Dispatch(name string, payload any) {
 	// Lock
 	e.mh.Lock()
 	defer e.mh.Unlock()
@@ -468,7 +468,7 @@ func (m *DebugMutex) caller() (o string) {
 	return
 }
 
-func (m *DebugMutex) log(fmt string, args ...interface{}) {
+func (m *DebugMutex) log(fmt string, args ...any) {
 	if m.ll < LoggerLevelDebug {
 		return
 	}
