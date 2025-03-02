@@ -53,6 +53,7 @@ type LimiterBucket struct {
 	cap    int
 	ctx    context.Context
 	count  int
+	m      sync.Mutex // Locks count
 	period time.Duration
 	o      *sync.Once
 }
@@ -72,6 +73,8 @@ func newLimiterBucket(cap int, period time.Duration) (b *LimiterBucket) {
 
 // Inc increments the bucket count
 func (b *LimiterBucket) Inc() bool {
+	b.m.Lock()
+	defer b.m.Unlock()
 	if b.count >= b.cap {
 		return false
 	}
@@ -86,7 +89,9 @@ func (b *LimiterBucket) tick() {
 	for {
 		select {
 		case <-t.C:
+			b.m.Lock()
 			b.count = 0
+			b.m.Unlock()
 		case <-b.ctx.Done():
 			return
 		}

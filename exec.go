@@ -88,7 +88,7 @@ func ExecCmd(w *Worker, o ExecCmdOptions) (h *ExecHandler, err error) {
 		}
 
 		// Stop
-		if err = f(); err != nil {
+		if err := f(); err != nil {
 			w.Logger().Error(fmt.Errorf("astikit: stopping cmd failed: %w", err))
 			return
 		}

@@ -187,7 +187,7 @@ func TestHTTPSender(t *testing.T) {
 		t.Fatalf("expected no error, got %s", err)
 	}
 	if gbo != ebo {
-		t.Fatalf("expected %s, go %s", ebo, gbo)
+		t.Fatalf("expected %s, got %s", ebo, gbo)
 	}
 
 	// Timeout
