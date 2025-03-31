@@ -193,6 +193,19 @@ func (s *HTTPSender) send(req *http.Request, timeout time.Duration) (resp *http.
 
 type HTTPSenderHeaderFunc func(h http.Header)
 
+type HTTPSenderInvalidStatusCodeError struct {
+	Err        error
+	StatusCode int
+}
+
+func (err HTTPSenderInvalidStatusCodeError) Error() string {
+	return fmt.Errorf("astikit: validating status code %d failed: %w", err.StatusCode, err.Err).Error()
+}
+
+func (err HTTPSenderInvalidStatusCodeError) Is(target error) bool {
+	return errors.Is(err.Err, target)
+}
+
 type HTTPSenderStatusCodeFunc func(code int) error
 
 // HTTPSendJSONOptions represents SendJSON options
@@ -291,7 +304,10 @@ func (s *HTTPSender) SendJSON(o HTTPSendJSONOptions) (err error) {
 		}
 
 		// Default error
-		err = fmt.Errorf("astikit: validating status code %d failed: %w", resp.StatusCode, err)
+		err = HTTPSenderInvalidStatusCodeError{
+			Err:        err,
+			StatusCode: resp.StatusCode,
+		}
 		return
 	}
 

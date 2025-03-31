@@ -140,6 +140,7 @@ func TestHTTPSender(t *testing.T) {
 	})
 	var gho http.Header
 	errTest := errors.New("test")
+	var isce HTTPSenderInvalidStatusCodeError
 	if err := s3.SendJSON(HTTPSendJSONOptions{
 		HeadersIn:  ehi,
 		HeadersOut: func(h http.Header) { gho = h },
@@ -155,6 +156,14 @@ func TestHTTPSender(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	} else if !errors.Is(err, errTest) {
 		t.Fatal("expected true, got false")
+	} else if !errors.As(err, &isce) {
+		t.Fatal("expected true, got false")
+	}
+	if e, g := (HTTPSenderInvalidStatusCodeError{
+		Err:        errTest,
+		StatusCode: http.StatusBadRequest,
+	}), isce; !reflect.DeepEqual(e, g) {
+		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 	if !reflect.DeepEqual(ehi, ghi) {
 		t.Fatalf("expected %+v, got %+v", ehi, ghi)
