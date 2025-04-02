@@ -79,7 +79,7 @@ type HTTPSender struct {
 }
 
 // HTTPSenderRetryFunc is a function that decides whether to retry an HTTP request
-type HTTPSenderRetryFunc func(resp *http.Response) error
+type HTTPSenderRetryFunc func(resp *http.Response) bool
 
 // HTTPSenderOptions represents HTTPSender options
 type HTTPSenderOptions struct {
@@ -110,11 +110,8 @@ func NewHTTPSender(o HTTPSenderOptions) (s *HTTPSender) {
 	return
 }
 
-func (s *HTTPSender) defaultHTTPRetryFunc(resp *http.Response) error {
-	if resp.StatusCode >= http.StatusInternalServerError {
-		return fmt.Errorf("astikit: invalid status code %d", resp.StatusCode)
-	}
-	return nil
+func (s *HTTPSender) defaultHTTPRetryFunc(resp *http.Response) bool {
+	return resp.StatusCode >= http.StatusInternalServerError
 }
 
 // Send sends a new *http.Request
@@ -138,7 +135,7 @@ func (s *HTTPSender) SendWithTimeout(req *http.Request, timeout time.Duration) (
 	return s.send(req, timeout)
 }
 
-func (s *HTTPSender) send(req *http.Request, timeout time.Duration) (resp *http.Response, err error) {
+func (s *HTTPSender) send(req *http.Request, timeout time.Duration) (*http.Response, error) {
 	// Set name
 	name := req.Method + " request"
 	if req.URL != nil {
@@ -152,6 +149,8 @@ func (s *HTTPSender) send(req *http.Request, timeout time.Duration) (resp *http.
 
 	// Loop
 	// We start at retryMax + 1 so that it runs at least once even if retryMax == 0
+	var resp *http.Response
+	var errDo error
 	tries := 0
 	for retriesLeft := s.retryMax + 1; retriesLeft > 0; retriesLeft-- {
 		// Get request name
@@ -160,35 +159,41 @@ func (s *HTTPSender) send(req *http.Request, timeout time.Duration) (resp *http.
 
 		// Send request
 		s.l.Debugf("astikit: sending %s", nr)
-		if resp, err = s.client.Do(req); err != nil {
-			// Retry if error is temporary, stop here otherwise
-			if netError, ok := err.(net.Error); !ok || !netError.Timeout() {
-				err = fmt.Errorf("astikit: sending %s failed: %w", nr, err)
-				return
+		if resp, errDo = s.client.Do(req); errDo != nil {
+			// Stop if error is not temporary
+			if netError, ok := errDo.(net.Error); !ok || !netError.Timeout() {
+				return nil, errDo
 			}
-		} else if err = req.Context().Err(); err != nil {
-			err = fmt.Errorf("astikit: request context failed: %w", err)
-			return
-		} else {
-			err = s.retryFunc(resp)
+		}
+
+		// Request has timed out
+		if err := req.Context().Err(); err != nil {
+			// Make sure to close response body
+			if errDo == nil {
+				resp.Body.Close()
+			}
+			return nil, err
 		}
 
 		// Retry
-		if err != nil {
+		if errDo != nil || s.retryFunc(resp) {
 			if retriesLeft > 1 {
-				s.l.Errorf("astikit: sending %s failed, sleeping %s and retrying... (%d retries left): %w", nr, s.retrySleep, retriesLeft-1, err)
+				if errDo == nil {
+					resp.Body.Close()
+				}
+				s.l.Errorf("astikit: sending %s failed, sleeping %s and retrying... (%d retries left): %w", nr, s.retrySleep, retriesLeft-1, errDo)
 				time.Sleep(s.retrySleep)
 			}
 			continue
 		}
-
-		// Return if conditions for retrying were not met
-		return
+		return resp, nil
 	}
 
 	// Max retries limit reached
-	err = fmt.Errorf("astikit: sending %s failed after %d tries: %w", name, tries, err)
-	return
+	if errDo != nil {
+		return nil, errDo
+	}
+	return resp, nil
 }
 
 type HTTPSenderHeaderFunc func(h http.Header)

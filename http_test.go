@@ -59,37 +59,75 @@ func (err mockedNetError) Error() string   { return "" }
 func (err mockedNetError) Timeout() bool   { return err.timeout }
 func (err mockedNetError) Temporary() bool { return false }
 
+type mockedHTTPBody struct {
+	closed bool
+}
+
+func (b *mockedHTTPBody) Read([]byte) (int, error) {
+	return 0, nil
+}
+
+func (b *mockedHTTPBody) Close() error {
+	b.closed = true
+	return nil
+}
+
 func TestHTTPSender(t *testing.T) {
 	// All errors
 	var c int
+	var bs []*mockedHTTPBody
 	s1 := NewHTTPSender(HTTPSenderOptions{
 		Client: mockedHTTPClient(func(req *http.Request) (resp *http.Response, err error) {
 			c++
-			resp = &http.Response{StatusCode: http.StatusInternalServerError}
+			b := &mockedHTTPBody{}
+			bs = append(bs, b)
+			resp = &http.Response{
+				Body:       b,
+				StatusCode: http.StatusInternalServerError,
+			}
 			return
 		}),
 		RetryMax: 3,
 	})
-	if _, err := s1.Send(&http.Request{}); err == nil {
-		t.Fatal("expected error, got nil")
+	if _, err := s1.Send(&http.Request{}); err != nil {
+		t.Fatalf("expected no error, got %+v", err)
 	}
 	if e := 4; c != e {
 		t.Fatalf("expected %v, got %v", e, c)
 	}
+	if e, g := 4, len(bs); e != g {
+		t.Fatalf("expected %v, got %v", e, g)
+	}
+	for i := 0; i < len(bs)-1; i++ {
+		if !bs[i].closed {
+			t.Fatalf("body #%d is not closed", i+1)
+		}
+	}
 
 	// Successful after retries
+	bs = []*mockedHTTPBody{}
 	c = 0
 	s2 := NewHTTPSender(HTTPSenderOptions{
 		Client: mockedHTTPClient(func(req *http.Request) (resp *http.Response, err error) {
 			c++
 			switch c {
 			case 1:
-				resp = &http.Response{StatusCode: http.StatusInternalServerError}
+				b := &mockedHTTPBody{}
+				bs = append(bs, b)
+				resp = &http.Response{
+					Body:       b,
+					StatusCode: http.StatusInternalServerError,
+				}
 			case 2:
 				err = mockedNetError{timeout: true}
 			default:
 				// No retrying
-				resp = &http.Response{StatusCode: http.StatusBadRequest}
+				b := &mockedHTTPBody{}
+				bs = append(bs, b)
+				resp = &http.Response{
+					Body:       b,
+					StatusCode: http.StatusBadRequest,
+				}
 			}
 			return
 		}),
@@ -100,6 +138,14 @@ func TestHTTPSender(t *testing.T) {
 	}
 	if e := 3; c != e {
 		t.Fatalf("expected %v, got %v", e, c)
+	}
+	if e, g := 2, len(bs); e != g {
+		t.Fatalf("expected %v, got %v", e, g)
+	}
+	for i := 0; i < len(bs)-1; i++ {
+		if !bs[i].closed {
+			t.Fatalf("body #%d is not closed", i+1)
+		}
 	}
 
 	// JSON
@@ -200,10 +246,14 @@ func TestHTTPSender(t *testing.T) {
 	}
 
 	// Timeout
+	bs = []*mockedHTTPBody{}
 	timeoutMockedHTTPClient := mockedHTTPClient(func(req *http.Request) (resp *http.Response, err error) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		<-ctx.Done()
+		b := &mockedHTTPBody{}
+		bs = append(bs, b)
+		resp = &http.Response{Body: b}
 		return
 	})
 	s4 := NewHTTPSender(HTTPSenderOptions{Client: timeoutMockedHTTPClient})
@@ -212,6 +262,14 @@ func TestHTTPSender(t *testing.T) {
 	}
 	if err := s4.SendJSON(HTTPSendJSONOptions{Timeout: time.Millisecond}); err == nil {
 		t.Fatal("expected error, got nil")
+	}
+	if e, g := 2, len(bs); e != g {
+		t.Fatalf("expected %v, got %v", e, g)
+	}
+	for i, b := range bs {
+		if !b.closed {
+			t.Fatalf("body #%d is not closed", i+1)
+		}
 	}
 	// Make sure reading response body doesn't fail if timeout is not reached
 	if err := s3.SendJSON(HTTPSendJSONOptions{
