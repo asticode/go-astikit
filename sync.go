@@ -602,3 +602,120 @@ func (m *FIFOMutex) Unlock() {
 	m.waiting[0].L.Unlock()
 	m.waiting = m.waiting[1:]
 }
+
+// BufferedBatcher is a Chan-like object that:
+//   - processes all added items in the provided callback as a batch so that they're all processed together
+//   - doesn't block when adding an item while a batch is being processed but add it to the next batch
+//   - if an item is added several times to the same batch, it will be processed only once in the next batch
+type BufferedBatcher struct {
+	batch   map[any]bool // Locked by c's mutex
+	c       *sync.Cond
+	cancel  context.CancelFunc
+	ctx     context.Context
+	mc      sync.Mutex // Locks cancel and ctx
+	onBatch BufferedBatcherOnBatchFunc
+}
+
+type BufferedBatcherOnBatchFunc func(ctx context.Context, batch []any)
+
+type BufferedBatcherOptions struct {
+	OnBatch BufferedBatcherOnBatchFunc
+}
+
+func NewBufferedBatcher(o BufferedBatcherOptions) *BufferedBatcher {
+	return &BufferedBatcher{
+		batch:   make(map[any]bool),
+		c:       sync.NewCond(&sync.Mutex{}),
+		onBatch: o.OnBatch,
+	}
+}
+
+func (bb *BufferedBatcher) Start(ctx context.Context) {
+	// Already running
+	bb.mc.Lock()
+	if bb.ctx != nil && bb.ctx.Err() == nil {
+		bb.mc.Unlock()
+		return
+	}
+
+	// Create context
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Store context
+	bb.ctx = ctx
+	bb.cancel = cancel
+	bb.mc.Unlock()
+
+	// Handle context
+	go func() {
+		// Wait for context to be done
+		<-ctx.Done()
+
+		// Signal
+		bb.c.L.Lock()
+		bb.c.Signal()
+		bb.c.L.Unlock()
+	}()
+
+	// Loop
+	for {
+		// Context has been canceled
+		if ctx.Err() != nil {
+			return
+		}
+
+		// Wait for batch
+		bb.c.L.Lock()
+		if len(bb.batch) == 0 {
+			bb.c.Wait()
+			bb.c.L.Unlock()
+			continue
+		}
+
+		// Copy batch into a slice
+		var batch []any
+		for i := range bb.batch {
+			batch = append(batch, i)
+		}
+
+		// Reset batch
+		bb.batch = map[any]bool{}
+
+		// Unlock
+		bb.c.L.Unlock()
+
+		// Callback
+		bb.onBatch(ctx, batch)
+	}
+}
+
+func (bb *BufferedBatcher) Add(i any) {
+	// Lock
+	bb.c.L.Lock()
+	defer bb.c.L.Unlock()
+
+	// Store
+	bb.batch[i] = true
+
+	// Signal
+	bb.c.Signal()
+}
+
+func (bb *BufferedBatcher) Stop() {
+	// Lock
+	bb.mc.Lock()
+	defer bb.mc.Unlock()
+
+	// Not running
+	if bb.ctx == nil {
+		return
+	}
+
+	// Cancel
+	bb.cancel()
+
+	// Reset context
+	bb.ctx = nil
+	bb.cancel = nil
+}

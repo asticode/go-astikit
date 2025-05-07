@@ -2,6 +2,7 @@ package astikit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -185,10 +186,10 @@ func TestDebugMutex(t *testing.T) {
 	if e, g := 1, len(ss); e != g {
 		t.Fatalf("expected %d, got %d", e, g)
 	}
-	if s, g := "sync_test.go:176", ss[0]; !strings.Contains(g, s) {
+	if s, g := "sync_test.go:177", ss[0]; !strings.Contains(g, s) {
 		t.Fatalf("%s doesn't contain %s", g, s)
 	}
-	if s, g := "sync_test.go:181", ss[0]; !strings.Contains(g, s) {
+	if s, g := "sync_test.go:182", ss[0]; !strings.Contains(g, s) {
 		t.Fatalf("%s doesn't contain %s", g, s)
 	}
 }
@@ -217,4 +218,84 @@ func testFIFOMutex(i int, m *FIFOMutex, r *[]int, wg *sync.WaitGroup) {
 		*r = append(*r, i)
 		m.Unlock()
 	}()
+}
+
+func TestBufferedBatcher(t *testing.T) {
+	var count int
+	var batches []map[any]int
+	var bb1 *BufferedBatcher
+	ctx1, cancel1 := context.WithCancel(context.Background())
+	defer cancel1()
+	bb1 = NewBufferedBatcher(BufferedBatcherOptions{OnBatch: func(ctx context.Context, batch []any) {
+		count++
+		if len(batch) > 0 {
+			m := make(map[any]int)
+			for _, i := range batch {
+				m[i]++
+			}
+			batches = append(batches, m)
+		}
+		switch count {
+		case 1:
+			bb1.Add(1)
+			bb1.Add(1)
+			bb1.Add(2)
+		case 2:
+			bb1.Add(2)
+			bb1.Add(2)
+			bb1.Add(3)
+		case 3:
+			bb1.Add(1)
+			bb1.Add(1)
+			bb1.Add(2)
+			bb1.Add(2)
+			bb1.Add(3)
+			bb1.Add(3)
+		case 4:
+			go func() {
+				time.Sleep(100 * time.Millisecond)
+				bb1.Add(1)
+			}()
+		case 5:
+			cancel1()
+		}
+	}})
+	bb1.Add(1)
+	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Second)
+	defer cancel2()
+	go func() {
+		defer cancel2()
+		bb1.Start(ctx1)
+	}()
+	<-ctx2.Done()
+	if errors.Is(ctx2.Err(), context.DeadlineExceeded) {
+		t.Fatal("expected nothing, got timeout")
+	}
+	if e, g := []map[any]int{
+		{1: 1},
+		{1: 1, 2: 1},
+		{2: 1, 3: 1},
+		{1: 1, 2: 1, 3: 1},
+		{1: 1},
+	}, batches; !reflect.DeepEqual(e, g) {
+		t.Fatalf("expected %+v, got %+v", e, g)
+	}
+
+	var bb2 *BufferedBatcher
+	bb2 = NewBufferedBatcher(BufferedBatcherOptions{OnBatch: func(ctx context.Context, batch []any) {
+		bb2.Start(context.Background())
+		bb2.Stop()
+		bb2.Stop()
+	}})
+	bb2.Add(1)
+	ctx3, cancel3 := context.WithTimeout(context.Background(), time.Second)
+	defer cancel3()
+	go func() {
+		defer cancel3()
+		bb2.Start(context.Background())
+	}()
+	<-ctx3.Done()
+	if errors.Is(ctx3.Err(), context.DeadlineExceeded) {
+		t.Fatal("expected nothing, got timeout")
+	}
 }
