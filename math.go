@@ -58,3 +58,12 @@ func (r *Rational) UnmarshalText(b []byte) (err error) {
 	}
 	return
 }
+
+func MinMaxInt(v, min, max int) int {
+	if v < min {
+		return min
+	} else if v > max {
+		return max
+	}
+	return v
+}

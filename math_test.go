@@ -53,3 +53,15 @@ func TestRational(t *testing.T) {
 		t.Fatalf("expected %s, got %s", e, g)
 	}
 }
+
+func TestMinMaxInt(t *testing.T) {
+	if e, g := 0, MinMaxInt(-1, 0, 2); e != g {
+		t.Fatalf("expected %+v, got %+v", e, g)
+	}
+	if e, g := 1, MinMaxInt(1, 0, 2); e != g {
+		t.Fatalf("expected %+v, got %+v", e, g)
+	}
+	if e, g := 2, MinMaxInt(3, 0, 2); e != g {
+		t.Fatalf("expected %+v, got %+v", e, g)
+	}
+}
