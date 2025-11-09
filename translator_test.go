@@ -113,12 +113,12 @@ func TestTranslator(t *testing.T) {
 	}
 }
 
-func TestTranslator_ParseAcceptLanguage(t *testing.T) {
+func TestTranslator_ParseAcceptLanguageHeader(t *testing.T) {
 	tl := NewTranslator(TranslatorOptions{ValidLanguages: []string{"en", "fr"}})
-	if e, g := "", tl.parseAcceptLanguage(""); !reflect.DeepEqual(e, g) {
+	if e, g := "", tl.ParseAcceptLanguageHeader(""); !reflect.DeepEqual(e, g) {
 		t.Fatalf("expected %+v, got %+v", e, g)
 	}
-	if e, g := "fr", tl.parseAcceptLanguage(" fr-FR, fr ; q=0.9 ,en;q=0.7,en-US;q=0.8 "); !reflect.DeepEqual(e, g) {
+	if e, g := "fr", tl.ParseAcceptLanguageHeader(" fr-FR, fr ; q=0.9 ,en;q=0.7,en-US;q=0.8 "); !reflect.DeepEqual(e, g) {
 		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 }

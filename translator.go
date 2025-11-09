@@ -151,7 +151,7 @@ func (t *Translator) HTTPMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		// Store language in context
 		if l := r.Header.Get("Accept-Language"); l != "" {
-			*r = *r.WithContext(contextWithTranslatorLanguage(r.Context(), t.parseAcceptLanguage(l)))
+			*r = *r.WithContext(contextWithTranslatorLanguage(r.Context(), t.ParseAcceptLanguageHeader(l)))
 		}
 
 		// Next handler
@@ -159,11 +159,11 @@ func (t *Translator) HTTPMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func (t *Translator) parseAcceptLanguage(h string) string {
+func (t *Translator) ParseAcceptLanguageHeader(header string) string {
 	// Split on comma
 	var qs []float64
 	ls := make(map[float64][]string)
-	for _, c := range strings.Split(strings.TrimSpace(h), ",") {
+	for _, c := range strings.Split(strings.TrimSpace(header), ",") {
 		// Empty
 		c = strings.TrimSpace(c)
 		if c == "" {
@@ -230,8 +230,12 @@ func (t *Translator) language(language string) string {
 }
 
 // LanguageCtx returns the translator language from the context, or the default language if not in the context
-func (t *Translator) LanguageCtx(ctx context.Context) string {
+func (t *Translator) LanguageC(ctx context.Context) string {
 	return t.language(translatorLanguageFromContext(ctx))
+}
+
+func (t *Translator) LanguageCtx(ctx context.Context) string {
+	return t.LanguageC(ctx)
 }
 
 // Translate translates a key into a specific language
