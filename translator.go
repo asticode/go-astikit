@@ -151,7 +151,7 @@ func (t *Translator) HTTPMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		// Store language in context
 		if l := r.Header.Get("Accept-Language"); l != "" {
-			*r = *r.WithContext(contextWithTranslatorLanguage(r.Context(), t.parseAcceptLanguage(l)))
+			*r = *r.WithContext(contextWithTranslatorLanguage(r.Context(), t.LanguageFromAcceptLanguageHeader(l)))
 		}
 
 		// Next handler
@@ -159,7 +159,7 @@ func (t *Translator) HTTPMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func (t *Translator) parseAcceptLanguage(h string) string {
+func (t *Translator) LanguageFromAcceptLanguageHeader(h string) string {
 	// Split on comma
 	var qs []float64
 	ls := make(map[float64][]string)
@@ -203,7 +203,7 @@ func (t *Translator) parseAcceptLanguage(h string) string {
 			}
 		}
 	}
-	return ""
+	return t.defaultLanguage
 }
 
 const contextKeyTranslatorLanguage = contextKey("astikit.translator.language")
@@ -231,6 +231,10 @@ func (t *Translator) language(language string) string {
 
 // LanguageCtx returns the translator language from the context, or the default language if not in the context
 func (t *Translator) LanguageCtx(ctx context.Context) string {
+	return t.LanguageC(ctx)
+}
+
+func (t *Translator) LanguageC(ctx context.Context) string {
 	return t.language(translatorLanguageFromContext(ctx))
 }
 
@@ -272,4 +276,24 @@ func (t *Translator) TranslateC(ctx context.Context, key string) string {
 
 func (t *Translator) TranslateCf(ctx context.Context, key string, args ...any) string {
 	return t.Translatef(translatorLanguageFromContext(ctx), key, args...)
+}
+
+type translatorForLanguage struct {
+	language string
+	t        *Translator
+}
+
+func (t *Translator) WithLanguage(language string) *translatorForLanguage {
+	return &translatorForLanguage{
+		language: language,
+		t:        t,
+	}
+}
+
+func (t *translatorForLanguage) Translate(k string) string {
+	return t.t.Translate(t.language, k)
+}
+
+func (t *translatorForLanguage) Translatef(k string, args ...any) string {
+	return t.t.Translatef(t.language, k, args...)
 }

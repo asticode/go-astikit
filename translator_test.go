@@ -111,14 +111,32 @@ func TestTranslator(t *testing.T) {
 			t.Fatalf("expected %+v, got %+v", v.expected, o)
 		}
 	}
-}
 
-func TestTranslator_ParseAcceptLanguage(t *testing.T) {
-	tl := NewTranslator(TranslatorOptions{ValidLanguages: []string{"en", "fr"}})
-	if e, g := "", tl.parseAcceptLanguage(""); !reflect.DeepEqual(e, g) {
+	// With language
+	twl := tl.WithLanguage("en")
+	if e, g := "1", twl.Translate("1"); !reflect.DeepEqual(e, g) {
 		t.Fatalf("expected %+v, got %+v", e, g)
 	}
-	if e, g := "fr", tl.parseAcceptLanguage(" fr-FR, fr ; q=0.9 ,en;q=0.7,en-US;q=0.8 "); !reflect.DeepEqual(e, g) {
+	if e, g := "4", twl.Translate("4"); !reflect.DeepEqual(e, g) {
+		t.Fatalf("expected %+v, got %+v", e, g)
+	}
+	if e, g := "en.a", twl.Translate("a"); !reflect.DeepEqual(e, g) {
+		t.Fatalf("expected %+v, got %+v", e, g)
+	}
+	if e, g := "fvf", twl.Translatef("f", "v"); !reflect.DeepEqual(e, g) {
+		t.Fatalf("expected %+v, got %+v", e, g)
+	}
+}
+
+func TestTranslator_LanguageFromAcceptLanguageHeader(t *testing.T) {
+	tl := NewTranslator(TranslatorOptions{
+		DefaultLanguage: "en",
+		ValidLanguages:  []string{"en", "fr"},
+	})
+	if e, g := "en", tl.LanguageFromAcceptLanguageHeader(""); !reflect.DeepEqual(e, g) {
+		t.Fatalf("expected %+v, got %+v", e, g)
+	}
+	if e, g := "fr", tl.LanguageFromAcceptLanguageHeader(" fr-FR, fr ; q=0.9 ,en;q=0.7,en-US;q=0.8 "); !reflect.DeepEqual(e, g) {
 		t.Fatalf("expected %+v, got %+v", e, g)
 	}
 }
