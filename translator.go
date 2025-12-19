@@ -278,22 +278,22 @@ func (t *Translator) TranslateCf(ctx context.Context, key string, args ...any) s
 	return t.Translatef(translatorLanguageFromContext(ctx), key, args...)
 }
 
-type translatorForLanguage struct {
+type TranslatorForLanguage struct {
 	language string
 	t        *Translator
 }
 
-func (t *Translator) WithLanguage(language string) *translatorForLanguage {
-	return &translatorForLanguage{
+func (t *Translator) WithLanguage(language string) *TranslatorForLanguage {
+	return &TranslatorForLanguage{
 		language: language,
 		t:        t,
 	}
 }
 
-func (t *translatorForLanguage) Translate(k string) string {
+func (t *TranslatorForLanguage) Translate(k string) string {
 	return t.t.Translate(t.language, k)
 }
 
-func (t *translatorForLanguage) Translatef(k string, args ...any) string {
+func (t *TranslatorForLanguage) Translatef(k string, args ...any) string {
 	return t.t.Translatef(t.language, k, args...)
 }
