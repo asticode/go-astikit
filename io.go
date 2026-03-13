@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -251,4 +252,45 @@ func (p *Piper) Write(i []byte) (n int, err error) {
 	p.c.Signal()
 	p.c.L.Unlock()
 	return len(b), nil
+}
+
+type WriteChainer struct {
+	w io.Writer
+}
+
+func NewWriteChainer(w io.Writer) *WriteChainer {
+	return &WriteChainer{w: w}
+}
+
+type WriteChainerFunc func(w io.Writer) (int, error)
+
+func (c *WriteChainer) Write(fs ...WriteChainerFunc) (int, error) {
+	var n int
+	for _, f := range fs {
+		fn, err := f(c.w)
+		if err != nil {
+			return n, err
+		}
+		n += fn
+	}
+	return n, nil
+}
+
+func WriteWithLabel(label string, b []byte) WriteChainerFunc {
+	return func(w io.Writer) (int, error) {
+		n, err := w.Write(b)
+		if err != nil {
+			return n, fmt.Errorf("astikit: writing %s failed: %w", label, err)
+		}
+		return n, nil
+	}
+}
+
+func WriteWithCondition(label string, b []byte, do bool) WriteChainerFunc {
+	return func(w io.Writer) (int, error) {
+		if !do {
+			return 0, nil
+		}
+		return WriteWithLabel(label, b)(w)
+	}
 }

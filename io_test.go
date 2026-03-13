@@ -177,3 +177,46 @@ func TestPiper(t *testing.T) {
 		t.Fatalf("expected %s, got %s", e1, err)
 	}
 }
+
+type mockedWriter struct {
+	b   []byte
+	err error
+}
+
+func (w *mockedWriter) Write(b []byte) (int, error) {
+	if w.err != nil {
+		return 0, w.err
+	}
+	w.b = append(w.b, b...)
+	return len(b), nil
+}
+
+func TestWriteChainer(t *testing.T) {
+	w := &mockedWriter{}
+	c := NewWriteChainer(w)
+	n, err := c.Write(
+		WriteWithLabel("1", []byte("1")),
+		WriteWithCondition("2", []byte("2"), false),
+		WriteWithCondition("3", []byte("3"), true),
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %+v", err)
+	}
+	if e, g := 2, n; e != g {
+		t.Fatalf("expected %d, got %d", e, g)
+	}
+	if e, g := "13", string(w.b); e != g {
+		t.Fatalf("expected %s, got %s", e, g)
+	}
+	w.err = errors.New("test")
+	n, err = c.Write(WriteWithLabel("label", []byte("4")))
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if e, g := "astikit: writing label failed: test", err.Error(); e != g {
+		t.Fatalf("expected %s, got %s", e, g)
+	}
+	if e, g := 0, n; e != g {
+		t.Fatalf("expected %d, got %d", e, g)
+	}
+}
