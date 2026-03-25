@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -719,4 +720,40 @@ func HTTPMiddlewareCORSHeaders() HTTPMiddleware {
 		"Access-Control-Allow-Methods": "*",
 		"Access-Control-Allow-Origin":  "*",
 	})
+}
+
+type ProxyPool struct {
+	index int
+	p     []*url.URL
+}
+
+type ProxyPoolOptions struct {
+	URLs []string
+}
+
+func NewProxyPool(o ProxyPoolOptions) (*ProxyPool, error) {
+	pp := &ProxyPool{}
+	for _, ou := range o.URLs {
+		u, err := url.Parse(ou)
+		if err != nil {
+			return nil, fmt.Errorf("astikit: parsing url %s failed: %w", ou, err)
+		}
+		pp.p = append(pp.p, u)
+	}
+	return pp, nil
+}
+
+func (pp *ProxyPool) Next() bool {
+	if pp.index+1 >= len(pp.p) {
+		return false
+	}
+	pp.index++
+	return true
+}
+
+func (pp *ProxyPool) RequestURL(r *http.Request) (*url.URL, error) {
+	if len(pp.p) <= pp.index {
+		return nil, nil
+	}
+	return pp.p[pp.index], nil
 }

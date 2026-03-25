@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -356,4 +357,70 @@ func TestHTTPDownloader(t *testing.T) {
 		t.Fatalf("expected no error, got %+v", err)
 	}
 	checkFile(t, p, "/path/to/1/path/to/2/path/to/3")
+}
+
+func TestProxyPool(t *testing.T) {
+	_, err := NewProxyPool(ProxyPoolOptions{URLs: []string{":"}})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	a1, a2 := "http://1.2.3.4:1", "http://1.2.3.4:2"
+	pp, err := NewProxyPool(ProxyPoolOptions{URLs: []string{a1, a2}})
+	if err != nil {
+		t.Fatalf("expected no error, got %+v", err)
+	}
+
+	u, err := pp.RequestURL(nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %+v", err)
+	}
+	if e, g := a1, u.String(); e != g {
+		t.Fatalf("expected %s, got %s", e, g)
+	}
+
+	u, err = pp.RequestURL(nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %+v", err)
+	}
+	if e, g := a1, u.String(); e != g {
+		t.Fatalf("expected %s, got %s", e, g)
+	}
+
+	if e, g := true, pp.Next(); e != g {
+		t.Fatalf("expected %v, got %v", e, g)
+	}
+
+	u, err = pp.RequestURL(nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %+v", err)
+	}
+	if e, g := a2, u.String(); e != g {
+		t.Fatalf("expected %s, got %s", e, g)
+	}
+
+	if e, g := false, pp.Next(); e != g {
+		t.Fatalf("expected %v, got %v", e, g)
+	}
+
+	u, err = pp.RequestURL(nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %+v", err)
+	}
+	if e, g := a2, u.String(); e != g {
+		t.Fatalf("expected %s, got %s", e, g)
+	}
+
+	pp, err = NewProxyPool(ProxyPoolOptions{})
+	if err != nil {
+		t.Fatalf("expected no error, got %+v", err)
+	}
+
+	u, err = pp.RequestURL(nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %+v", err)
+	}
+	if e, g := (*url.URL)(nil), u; e != g {
+		t.Fatalf("expected nil, got %+v", g)
+	}
 }
